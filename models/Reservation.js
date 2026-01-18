@@ -5,9 +5,10 @@ class Reservation {
   static async create(equipmentId, userId, startTime, endTime, purpose, status = 'confirmed') {
     const sql = `
       INSERT INTO reservations (equipment_id, user_id, start_time, end_time, purpose, status)
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id
     `;
-    const result = await run(sql, [equipmentId, userId, startTime, endTime, purpose, status]);
+    const result = await get(sql, [equipmentId, userId, startTime, endTime, purpose, status]);
     return result.id;
   }
 
@@ -15,18 +16,18 @@ class Reservation {
   static async checkConflict(equipmentId, startTime, endTime, excludeReservationId = null) {
     let sql = `
       SELECT * FROM reservations 
-      WHERE equipment_id = ? 
+      WHERE equipment_id = $1 
       AND status != 'cancelled'
       AND (
-        (start_time <= ? AND end_time > ?) OR
-        (start_time < ? AND end_time >= ?) OR
-        (start_time >= ? AND end_time <= ?)
+        (start_time <= $2 AND end_time > $2) OR
+        (start_time < $3 AND end_time >= $3) OR
+        (start_time >= $2 AND end_time <= $3)
       )
     `;
-    let params = [equipmentId, startTime, startTime, endTime, endTime, startTime, endTime];
+    let params = [equipmentId, startTime, endTime];
 
     if (excludeReservationId) {
-      sql += ' AND id != ?';
+      sql += ' AND id != $4';
       params.push(excludeReservationId);
     }
 
@@ -60,7 +61,7 @@ class Reservation {
         e.location as equipment_location
       FROM reservations r
       JOIN equipment e ON r.equipment_id = e.id
-      WHERE r.user_id = ?
+      WHERE r.user_id = $1
       ORDER BY r.start_time DESC
     `;
     return await query(sql, [userId]);
@@ -75,7 +76,7 @@ class Reservation {
         u.email
       FROM reservations r
       JOIN users u ON r.user_id = u.id
-      WHERE r.equipment_id = ? AND r.status != 'cancelled'
+      WHERE r.equipment_id = $1 AND r.status != 'cancelled'
       ORDER BY r.start_time ASC
     `;
     return await query(sql, [equipmentId]);
@@ -93,7 +94,7 @@ class Reservation {
       FROM reservations r
       JOIN users u ON r.user_id = u.id
       JOIN equipment e ON r.equipment_id = e.id
-      WHERE r.id = ?
+      WHERE r.id = $1
     `;
     return await get(sql, [id]);
   }
@@ -102,21 +103,21 @@ class Reservation {
   static async update(id, startTime, endTime, purpose, status) {
     const sql = `
       UPDATE reservations 
-      SET start_time = ?, end_time = ?, purpose = ?, status = ?
-      WHERE id = ?
+      SET start_time = $1, end_time = $2, purpose = $3, status = $4
+      WHERE id = $5
     `;
     return await run(sql, [startTime, endTime, purpose, status, id]);
   }
 
   // Cancel reservation
   static async cancel(id) {
-    const sql = 'UPDATE reservations SET status = ? WHERE id = ?';
+    const sql = 'UPDATE reservations SET status = $1 WHERE id = $2';
     return await run(sql, ['cancelled', id]);
   }
 
   // Delete reservation
   static async delete(id) {
-    const sql = 'DELETE FROM reservations WHERE id = ?';
+    const sql = 'DELETE FROM reservations WHERE id = $1';
     return await run(sql, [id]);
   }
 
@@ -130,9 +131,9 @@ class Reservation {
       FROM reservations r
       JOIN users u ON r.user_id = u.id
       JOIN equipment e ON r.equipment_id = e.id
-      WHERE r.start_time >= datetime('now') AND r.status = 'confirmed'
+      WHERE r.start_time >= NOW() AND r.status = 'confirmed'
       ORDER BY r.start_time ASC
-      LIMIT ?
+      LIMIT $1
     `;
     return await query(sql, [limit]);
   }
@@ -148,7 +149,7 @@ class Reservation {
       FROM reservations r
       JOIN users u ON r.user_id = u.id
       JOIN equipment e ON r.equipment_id = e.id
-      WHERE r.start_time >= ? AND r.end_time <= ? AND r.status != 'cancelled'
+      WHERE r.start_time >= $1 AND r.end_time <= $2 AND r.status != 'cancelled'
       ORDER BY r.start_time ASC
     `;
     return await query(sql, [startDate, endDate]);

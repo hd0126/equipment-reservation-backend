@@ -7,27 +7,28 @@ class User {
     const hashedPassword = await bcrypt.hash(password, 10);
     const sql = `
       INSERT INTO users (username, email, password_hash, role)
-      VALUES (?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
     `;
-    const result = await run(sql, [username, email, hashedPassword, role]);
+    const result = await get(sql, [username, email, hashedPassword, role]);
     return result.id;
   }
 
   // Find user by email
   static async findByEmail(email) {
-    const sql = 'SELECT * FROM users WHERE email = ?';
+    const sql = 'SELECT * FROM users WHERE email = $1';
     return await get(sql, [email]);
   }
 
   // Find user by username
   static async findByUsername(username) {
-    const sql = 'SELECT * FROM users WHERE username = ?';
+    const sql = 'SELECT * FROM users WHERE username = $1';
     return await get(sql, [username]);
   }
 
   // Find user by ID
   static async findById(id) {
-    const sql = 'SELECT id, username, email, role, created_at FROM users WHERE id = ?';
+    const sql = 'SELECT id, username, email, role, created_at FROM users WHERE id = $1';
     return await get(sql, [id]);
   }
 
@@ -44,13 +45,13 @@ class User {
 
   // Update user role
   static async updateRole(userId, role) {
-    const sql = 'UPDATE users SET role = ? WHERE id = ?';
+    const sql = 'UPDATE users SET role = $1 WHERE id = $2';
     return await run(sql, [role, userId]);
   }
 
   // Delete user
   static async delete(userId) {
-    const sql = 'DELETE FROM users WHERE id = ?';
+    const sql = 'DELETE FROM users WHERE id = $1';
     return await run(sql, [userId]);
   }
 }

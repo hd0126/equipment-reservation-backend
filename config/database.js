@@ -1,112 +1,96 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-// Database file path
-const DB_PATH = path.join(__dirname, '..', 'database.sqlite');
+// PostgreSQL connection pool
+// Railway automatically provides DATABASE_URL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-// Create database connection
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error('Error connecting to database:', err.message);
-  } else {
-    console.log('Connected to SQLite database');
-  }
+// Test connection
+pool.on('connect', () => {
+  console.log('Connected to PostgreSQL database');
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected database error:', err);
 });
 
 // Initialize database tables
-const initDatabase = () => {
-  return new Promise((resolve, reject) => {
-    db.serialize(() => {
-      // Create Users table
-      db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT UNIQUE NOT NULL,
-          email TEXT UNIQUE NOT NULL,
-          password_hash TEXT NOT NULL,
-          role TEXT DEFAULT 'user' CHECK(role IN ('user', 'admin')),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `, (err) => {
-        if (err) console.error('Error creating users table:', err);
-        else console.log('Users table ready');
-      });
+const initDatabase = async () => {
+  try {
+    // Create Users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Users table ready');
 
-      // Create Equipment table
-      db.run(`
-        CREATE TABLE IF NOT EXISTS equipment (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          location TEXT,
-          status TEXT DEFAULT 'available' CHECK(status IN ('available', 'maintenance')),
-          image_url TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `, (err) => {
-        if (err) console.error('Error creating equipment table:', err);
-        else console.log('Equipment table ready');
-      });
+    // Create Equipment table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS equipment (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        location VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'available' CHECK(status IN ('available', 'maintenance')),
+        image_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Equipment table ready');
 
-      // Create Reservations table
-      db.run(`
-        CREATE TABLE IF NOT EXISTS reservations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          equipment_id INTEGER NOT NULL,
-          user_id INTEGER NOT NULL,
-          start_time DATETIME NOT NULL,
-          end_time DATETIME NOT NULL,
-          purpose TEXT,
-          status TEXT DEFAULT 'confirmed' CHECK(status IN ('pending', 'confirmed', 'cancelled')),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (equipment_id) REFERENCES equipment(id),
-          FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-      `, (err) => {
-        if (err) {
-          console.error('Error creating reservations table:', err);
-          reject(err);
-        } else {
-          console.log('Reservations table ready');
-          resolve();
-        }
-      });
-    });
-  });
+    // Create Reservations table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reservations (
+        id SERIAL PRIMARY KEY,
+        equipment_id INTEGER NOT NULL REFERENCES equipment(id),
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        start_time TIMESTAMP NOT NULL,
+        end_time TIMESTAMP NOT NULL,
+        purpose TEXT,
+        status VARCHAR(50) DEFAULT 'confirmed' CHECK(status IN ('pending', 'confirmed', 'cancelled')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Reservations table ready');
+
+    console.log('✓ Database initialized successfully');
+  } catch (err) {
+    console.error('Error initializing database:', err);
+    throw err;
+  }
 };
 
-// Helper function to run queries with promise
-const query = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
+// Helper function to run queries
+const query = async (sql, params = []) => {
+  const result = await pool.query(sql, params);
+  return result.rows;
 };
 
-// Helper function to run single query
-const run = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
-    });
-  });
+// Helper function to run single query and return metadata
+const run = async (sql, params = []) => {
+  const result = await pool.query(sql, params);
+  return {
+    id: result.rows[0]?.id || null,
+    changes: result.rowCount
+  };
 };
 
 // Helper function to get single row
-const get = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
+const get = async (sql, params = []) => {
+  const result = await pool.query(sql, params);
+  return result.rows[0] || null;
 };
 
 module.exports = {
-  db,
+  pool,
   initDatabase,
   query,
   run,
