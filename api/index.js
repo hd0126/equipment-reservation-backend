@@ -232,6 +232,38 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
+// Update equipment
+router.put('/:id', upload.single('image'), async (req, res) => {
+  try {
+    const { name, description, location, status } = req.body;
+    let image_url = req.body.image_url;
+
+    if (req.file) {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const mimeType = req.file.mimetype;
+      image_url = `data:${mimeType};base64,${b64}`;
+    }
+
+    const data = { name, description, location, status };
+    if (image_url) data.image_url = image_url;
+
+    await Equipment.update(req.params.id, data);
+    res.json({ message: 'Equipment updated successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete equipment
+router.delete('/:id', async (req, res) => {
+  try {
+    await Equipment.delete(req.params.id);
+    res.json({ message: 'Equipment deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Mount manual equipment routes
 app.use(['/equipment', '/api/equipment'], router);
 
