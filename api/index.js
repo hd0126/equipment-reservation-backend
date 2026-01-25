@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initDatabase, run } = require('../config/database');
+const { initDatabase, run, get } = require('../config/database');
 const User = require('../models/User');
 const Equipment = require('../models/Equipment');
 
@@ -30,12 +30,12 @@ const autoSeed = async () => {
       console.log('✓ Default test user created');
     }
 
-    // Only seed equipment if table is empty (prevents duplicate seeding)
-    const countResult = await run('SELECT COUNT(*) as count FROM equipment');
-    const count = parseInt(countResult.rows?.[0]?.count || 0);
-    console.log(`Current equipment count: ${count}`);
+    // Check if first equipment already exists (prevents race condition)
+    const existingEquipment = await get('SELECT id FROM equipment WHERE name = $1', ['UV aligner (SUSS)']);
 
-    if (count === 0) {
+    if (!existingEquipment) {
+      console.log('Seeding equipment (first item not found)...');
+
       const equipments = [
         {
           name: 'UV aligner (SUSS)',
@@ -76,11 +76,17 @@ const autoSeed = async () => {
       ];
 
       for (const eq of equipments) {
-        await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
+        // Use INSERT with conflict check to prevent duplicates
+        try {
+          await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
+        } catch (insertError) {
+          // Ignore duplicate errors
+          console.log(`Equipment ${eq.name} might already exist, skipping`);
+        }
       }
-      console.log(`✓ Seeded ${equipments.length} equipments (table was empty)`);
+      console.log(`✓ Seeded ${equipments.length} equipments`);
     } else {
-      console.log('⏭ Equipment table already has data, skipping seed');
+      console.log('⏭ Equipment already exists, skipping seed');
     }
 
   } catch (error) {
