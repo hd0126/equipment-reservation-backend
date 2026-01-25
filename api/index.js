@@ -45,49 +45,25 @@ const autoSeed = async () => {
     const equipments = [
       {
         name: 'UV aligner (SUSS)',
-        desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
+        desc: 'SUSS MicroTec MA6 Mask Aligner',
         loc: 'Yellow Room 101',
         img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
       },
       {
         name: 'UV aligner (MIDAS)',
-        desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
+        desc: 'MIDAS MDA-400M Mask Aligner',
         loc: 'Yellow Room 102',
         img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
       },
       {
-        name: 'E-beam Evaporator',
-        desc: 'Electron Beam Physical Vapor Deposition System',
-        loc: 'Thin Film Lab',
-        img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
-      },
-      {
-        name: 'Sputter System',
-        desc: 'RF/DC Magnetron Sputtering System for metal deposition',
-        loc: 'Thin Film Lab',
-        img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
-      },
-      {
-        name: 'Reactive Ion Etcher (RIE)',
-        desc: 'Plasma etching system for silicon and dielectrics',
-        loc: 'Etch Lab 201',
-        img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
-      },
-      {
-        name: 'FESEM',
-        desc: 'Field Emission Scanning Electron Microscope',
-        loc: 'Analysis Room',
-        img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
-      },
-      {
         name: 'Spincoater (SUSS)',
-        desc: 'SUSS MicroTec LabSpin for photoresist coating',
+        desc: 'SUSS MicroTec LabSpin',
         loc: 'Yellow Room 101',
         img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
       },
       {
         name: 'Spincoater (MIDAS)',
-        desc: 'MIDAS Spin Coater for general purpose',
+        desc: 'MIDAS Spin Coater',
         loc: 'Yellow Room 102',
         img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
       },
@@ -119,6 +95,13 @@ const autoSeed = async () => {
 app.use(cors()); // Allow all origins for troubleshooting
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Multer setup for file uploads (Memory Storage)
+const multer = require('multer');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 } // 4MB limit
+});
 
 // Request logging middleware
 app.use((req, res, next) => {
