@@ -72,39 +72,63 @@ const autoSeed = async () => {
     const equipments = [
       {
         name: 'UV aligner (SUSS)',
-        desc: 'SUSS MicroTec MA6 Mask Aligner',
+        desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
         loc: 'Yellow Room 101',
-        img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        img: 'https://cdn.pixabay.com/photo/2019/06/18/06/33/microscope-4281729_1280.jpg' // Represents alignment system
       },
       {
         name: 'UV aligner (MIDAS)',
-        desc: 'MIDAS MDA-400M Mask Aligner',
+        desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
         loc: 'Yellow Room 102',
-        img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Mask_Aligner.jpg/640px-Mask_Aligner.jpg' // Generic Mask Aligner
+      },
+      {
+        name: 'E-beam Evaporator',
+        desc: 'Electron Beam Physical Vapor Deposition System',
+        loc: 'Thin Film Lab',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/e/eb/PVD_coating_machine.jpg'
+      },
+      {
+        name: 'Sputter System',
+        desc: 'RF/DC Magnetron Sputtering System for metal deposition',
+        loc: 'Thin Film Lab',
+        img: 'https://live.staticflickr.com/65535/49692468301_f2b9b5a5b5_b.jpg' // Vacuum chamber look
+      },
+      {
+        name: 'Reactive Ion Etcher (RIE)',
+        desc: 'Plasma etching system for silicon and dielectrics',
+        loc: 'Etch Lab 201',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Plasma_etcher.jpg/640px-Plasma_etcher.jpg'
+      },
+      {
+        name: 'FESEM',
+        desc: 'Field Emission Scanning Electron Microscope',
+        loc: 'Analysis Room',
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/Electron_Microscope.jpg/640px-Electron_Microscope.jpg'
       },
       {
         name: 'Spincoater (SUSS)',
-        desc: 'SUSS MicroTec LabSpin',
+        desc: 'SUSS MicroTec LabSpin for photoresist coating',
         loc: 'Yellow Room 101',
-        img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        img: 'https://upload.wikimedia.org/wikipedia/commons/3/3f/Spin_coater.jpg'
       },
       {
         name: 'Spincoater (MIDAS)',
-        desc: 'MIDAS Spin Coater',
+        desc: 'MIDAS Spin Coater for general purpose',
         loc: 'Yellow Room 102',
-        img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Spin_coating.jpg/640px-Spin_coating.jpg'
       },
       {
         name: 'RIE (SORONA)',
         desc: 'Sorona Plasma Etch System',
         loc: 'Etch Lab 202',
-        img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+        img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Plasma_etcher.jpg/640px-Plasma_etcher.jpg' // Similar RIE
       },
       {
         name: 'ICP-RIE (OXFORD)',
         desc: 'Oxford Instruments Plasmalab System 100',
         loc: 'Etch Lab 201',
-        img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+        img: 'https://upload.wikimedia.org/wikipedia/commons/b/b2/Oxford_PlasmaLab_80_Plus.jpg'
       }
     ];
 
