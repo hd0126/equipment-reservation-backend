@@ -30,16 +30,20 @@ const autoSeed = async () => {
       console.log('✓ Default test user created');
     }
 
-    // Force reset equipment data for update
-    // Note: We use run() which was imported from database config
-    try {
-      await run('DELETE FROM equipment');
-      console.log('⚠ Equipment table cleared for update');
+    // Check equipment count first
+    const countResult = await run('SELECT COUNT(*) as count FROM equipment');
+    const count = parseInt(countResult.rows ? countResult.rows[0].count : 0);
+    console.log(`Current equipment count: ${count}`);
 
-      // Reset ID sequence if possible (Postgres specific)
+    // Always force reset for this update
+    await run('DELETE FROM equipment');
+    console.log('⚠ Equipment table cleared for update');
+
+    // Reset ID sequence
+    try {
       await run("ALTER SEQUENCE equipment_id_seq RESTART WITH 1");
     } catch (e) {
-      console.log('Note: Could not reset sequence or table (might be first run)');
+      console.log('Sequence reset skipped');
     }
 
     const equipments = [
@@ -84,7 +88,7 @@ const autoSeed = async () => {
     for (const eq of equipments) {
       await Equipment.create(eq.name, eq.desc, eq.loc, eq.img);
     }
-    console.log(`✓ Updated equipment list with ${equipments.length} items`);
+    console.log(`✓ Inserted ${equipments.length} equipments`);
 
   } catch (error) {
     console.error('Auto-seed error:', error);
