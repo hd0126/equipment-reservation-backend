@@ -30,20 +30,43 @@ const autoSeed = async () => {
       console.log('✓ Default test user created');
     }
 
-    // Check equipment count first
-    const countResult = await run('SELECT COUNT(*) as count FROM equipment');
-    const count = parseInt(countResult.rows ? countResult.rows[0].count : 0);
-    console.log(`Current equipment count: ${count}`);
-
-    // Always force reset for this update
-    await run('DELETE FROM equipment');
-    console.log('⚠ Equipment table cleared for update');
-
-    // Reset ID sequence
+    // Drop and recreate tables to fix schema issues (VARCHAR limit)
+    // Note: Order matters due to foreign keys
     try {
-      await run("ALTER SEQUENCE equipment_id_seq RESTART WITH 1");
+      await run('DROP TABLE IF EXISTS reservations');
+      await run('DROP TABLE IF EXISTS equipment');
+
+      console.log('⚠ Tables dropped for schema update');
+
+      // Recreate Equipment table with TEXT type for flexibility
+      await run(`
+        CREATE TABLE IF NOT EXISTS equipment (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          location TEXT,
+          status TEXT DEFAULT 'available',
+          image_url TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Recreate Reservations table
+      await run(`
+        CREATE TABLE IF NOT EXISTS reservations (
+          id SERIAL PRIMARY KEY,
+          equipment_id INTEGER NOT NULL REFERENCES equipment(id),
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          start_time TIMESTAMP NOT NULL,
+          end_time TIMESTAMP NOT NULL,
+          purpose TEXT,
+          status TEXT DEFAULT 'confirmed',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✓ Tables recreated with TEXT types');
     } catch (e) {
-      console.log('Sequence reset skipped');
+      console.error('Schema update failed:', e);
     }
 
     const equipments = [
