@@ -72,10 +72,10 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/equipment', equipmentRoutes);
-app.use('/reservations', reservationRoutes);
+// Routes (Handle both paths for Vercel routing compatibility)
+app.use(['/auth', '/api/auth'], authRoutes);
+app.use(['/equipment', '/api/equipment'], equipmentRoutes);
+app.use(['/reservations', '/api/reservations'], reservationRoutes);
 
 // Health check endpoint (Handle both paths just in case)
 app.get(['/health', '/api/health'], (req, res) => {
