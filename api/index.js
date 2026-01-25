@@ -132,9 +132,10 @@ const autoSeed = async () => {
     ];
 
     for (const eq of equipments) {
-      await Equipment.create(eq.name, eq.desc, eq.loc, eq.img);
+      // Correct argument order: name, description, location, status, imageUrl
+      await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
     }
-    console.log(`✓ Inserted ${equipments.length} equipments`);
+    console.log(`✓ Inserted ${equipments.length} equipments with correct args`);
 
   } catch (error) {
     console.error('Auto-seed error:', error);
