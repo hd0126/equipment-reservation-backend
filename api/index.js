@@ -33,10 +33,49 @@ const autoSeed = async () => {
     // Check and create default equipment
     const allEquipment = await Equipment.findAll();
     if (allEquipment.length === 0) {
-      await Equipment.create('Microscope A', 'High-resolution optical microscope', 'Lab 101', 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400');
-      await Equipment.create('3D Printer', 'Professional-grade 3D printer', 'Maker Space', 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400');
-      await Equipment.create('Oscilloscope', 'Digital storage oscilloscope', 'Electronics Lab', 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400');
-      console.log('✓ Default equipment created');
+      const equipments = [
+        {
+          name: 'UV aligner (SUSS)',
+          desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
+          loc: 'Yellow Room 101',
+          img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        },
+        {
+          name: 'UV aligner (MIDAS)',
+          desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
+          loc: 'Yellow Room 102',
+          img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        },
+        {
+          name: 'E-beam Evaporator',
+          desc: 'Electron Beam Physical Vapor Deposition System',
+          loc: 'Thin Film Lab',
+          img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        },
+        {
+          name: 'Sputter System',
+          desc: 'RF/DC Magnetron Sputtering System for metal deposition',
+          loc: 'Thin Film Lab',
+          img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        },
+        {
+          name: 'Reactive Ion Etcher (RIE)',
+          desc: 'Plasma etching system for silicon and dielectrics',
+          loc: 'Etch Lab 201',
+          img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+        },
+        {
+          name: 'FESEM',
+          desc: 'Field Emission Scanning Electron Microscope',
+          loc: 'Analysis Room',
+          img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        }
+      ];
+
+      for (const eq of equipments) {
+        await Equipment.create(eq.name, eq.desc, eq.loc, eq.img);
+      }
+      console.log(`✓ Default ${equipments.length} equipments created`);
     }
   } catch (error) {
     console.error('Auto-seed error:', error);
