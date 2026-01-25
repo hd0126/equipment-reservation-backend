@@ -243,10 +243,8 @@ router.put('/:id', upload.single('image'), async (req, res) => {
       image_url = `data:${mimeType};base64,${b64}`;
     }
 
-    const data = { name, description, location, status };
-    if (image_url) data.image_url = image_url;
-
-    await Equipment.update(req.params.id, data);
+    // Call Equipment.update with individual arguments, not an object
+    await Equipment.update(req.params.id, name, description, location, status, image_url);
     res.json({ message: 'Equipment updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
