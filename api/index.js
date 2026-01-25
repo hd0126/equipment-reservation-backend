@@ -47,8 +47,8 @@ app.use('/auth', authRoutes);
 app.use('/equipment', equipmentRoutes);
 app.use('/reservations', reservationRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint (Handle both paths just in case)
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({ status: 'OK', message: 'Equipment Reservation System API' });
 });
 
