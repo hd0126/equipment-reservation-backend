@@ -30,112 +30,58 @@ const autoSeed = async () => {
       console.log('✓ Default test user created');
     }
 
-    // Drop and recreate tables to fix schema issues (VARCHAR limit)
-    // Force reset equipment data for update
-    // Note: We use run() which was imported from database config
-    try {
-      await run('DELETE FROM equipment');
-      console.log('⚠ Equipment table cleared for update v2');
+    // Only seed equipment if table is empty (prevents duplicate seeding)
+    const countResult = await run('SELECT COUNT(*) as count FROM equipment');
+    const count = parseInt(countResult.rows?.[0]?.count || 0);
+    console.log(`Current equipment count: ${count}`);
 
-      // Recreate Equipment table with TEXT type for flexibility
-      await run(`
-        CREATE TABLE IF NOT EXISTS equipment (
-          id SERIAL PRIMARY KEY,
-          name TEXT NOT NULL,
-          description TEXT,
-          location TEXT,
-          status TEXT DEFAULT 'available',
-          image_url TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
+    if (count === 0) {
+      const equipments = [
+        {
+          name: 'UV aligner (SUSS)',
+          desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
+          loc: 'Yellow Room 101',
+          img: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=400&h=300&fit=crop'
+        },
+        {
+          name: 'UV aligner (MIDAS)',
+          desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
+          loc: 'Yellow Room 102',
+          img: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&h=300&fit=crop'
+        },
+        {
+          name: 'Spincoater (SUSS)',
+          desc: 'SUSS MicroTec LabSpin for photoresist coating',
+          loc: 'Yellow Room 101',
+          img: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?w=400&h=300&fit=crop'
+        },
+        {
+          name: 'Spincoater (MIDAS)',
+          desc: 'MIDAS Spin Coater for general purpose',
+          loc: 'Yellow Room 102',
+          img: 'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?w=400&h=300&fit=crop'
+        },
+        {
+          name: 'RIE (SORONA)',
+          desc: 'Sorona Plasma Etch System',
+          loc: 'Etch Lab 202',
+          img: 'https://images.unsplash.com/photo-1581091226033-d5c48150dbaa?w=400&h=300&fit=crop'
+        },
+        {
+          name: 'ICP-RIE (OXFORD)',
+          desc: 'Oxford Instruments Plasmalab System 100',
+          loc: 'Etch Lab 201',
+          img: 'https://images.unsplash.com/photo-1581091877018-dac6a371d50f?w=400&h=300&fit=crop'
+        }
+      ];
 
-      // Recreate Reservations table
-      await run(`
-        CREATE TABLE IF NOT EXISTS reservations (
-          id SERIAL PRIMARY KEY,
-          equipment_id INTEGER NOT NULL REFERENCES equipment(id),
-          user_id INTEGER NOT NULL REFERENCES users(id),
-          start_time TIMESTAMP NOT NULL,
-          end_time TIMESTAMP NOT NULL,
-          purpose TEXT,
-          status TEXT DEFAULT 'confirmed',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('✓ Tables recreated with TEXT types');
-    } catch (e) {
-      console.error('Schema update failed:', e);
-    }
-
-    const equipments = [
-      {
-        name: 'UV aligner (SUSS)',
-        desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
-        loc: 'Yellow Room 101',
-        img: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'UV aligner (MIDAS)',
-        desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
-        loc: 'Yellow Room 102',
-        img: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'E-beam Evaporator',
-        desc: 'Electron Beam Physical Vapor Deposition System',
-        loc: 'Thin Film Lab',
-        img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'Sputter System',
-        desc: 'RF/DC Magnetron Sputtering System for metal deposition',
-        loc: 'Thin Film Lab',
-        img: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'Reactive Ion Etcher (RIE)',
-        desc: 'Plasma etching system for silicon and dielectrics',
-        loc: 'Etch Lab 201',
-        img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'FESEM',
-        desc: 'Field Emission Scanning Electron Microscope',
-        loc: 'Analysis Room',
-        img: 'https://images.unsplash.com/photo-1576086213369-97a306d36557?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'Spincoater (SUSS)',
-        desc: 'SUSS MicroTec LabSpin for photoresist coating',
-        loc: 'Yellow Room 101',
-        img: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'Spincoater (MIDAS)',
-        desc: 'MIDAS Spin Coater for general purpose',
-        loc: 'Yellow Room 102',
-        img: 'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'RIE (SORONA)',
-        desc: 'Sorona Plasma Etch System',
-        loc: 'Etch Lab 202',
-        img: 'https://images.unsplash.com/photo-1581091226033-d5c48150dbaa?w=400&h=300&fit=crop'
-      },
-      {
-        name: 'ICP-RIE (OXFORD)',
-        desc: 'Oxford Instruments Plasmalab System 100',
-        loc: 'Etch Lab 201',
-        img: 'https://images.unsplash.com/photo-1581091877018-dac6a371d50f?w=400&h=300&fit=crop'
+      for (const eq of equipments) {
+        await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
       }
-    ];
-
-    for (const eq of equipments) {
-      // Correct argument order: name, description, location, status, imageUrl
-      await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
+      console.log(`✓ Seeded ${equipments.length} equipments (table was empty)`);
+    } else {
+      console.log('⏭ Equipment table already has data, skipping seed');
     }
-    console.log(`✓ Inserted ${equipments.length} equipments with correct args`);
 
   } catch (error) {
     console.error('Auto-seed error:', error);
@@ -264,6 +210,60 @@ router.delete('/:id', async (req, res) => {
 
 // Mount manual equipment routes
 app.use(['/equipment', '/api/equipment'], router);
+
+// Statistics API
+app.get(['/stats', '/api/stats'], async (req, res) => {
+  try {
+    // Equipment usage stats
+    const equipmentStats = await run(`
+      SELECT 
+        e.id,
+        e.name as equipment_name,
+        COUNT(r.id) as total_reservations,
+        COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count
+      FROM equipment e
+      LEFT JOIN reservations r ON e.id = r.equipment_id
+      GROUP BY e.id, e.name
+      ORDER BY total_reservations DESC
+    `);
+
+    // User usage stats
+    const userStats = await run(`
+      SELECT 
+        u.id,
+        u.username,
+        u.email,
+        COUNT(r.id) as total_reservations,
+        COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count
+      FROM users u
+      LEFT JOIN reservations r ON u.id = r.user_id
+      GROUP BY u.id, u.username, u.email
+      ORDER BY total_reservations DESC
+    `);
+
+    // Monthly reservation trends (last 6 months)
+    const monthlyStats = await run(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', start_time), 'YYYY-MM') as month,
+        COUNT(*) as count
+      FROM reservations
+      WHERE start_time >= NOW() - INTERVAL '6 months'
+      GROUP BY DATE_TRUNC('month', start_time)
+      ORDER BY month DESC
+    `);
+
+    res.json({
+      equipmentStats: equipmentStats.rows || [],
+      userStats: userStats.rows || [],
+      monthlyStats: monthlyStats.rows || []
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Health check endpoint (Handle both paths just in case)
 app.get(['/health', '/api/health'], (req, res) => {
