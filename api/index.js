@@ -1,12 +1,80 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initDatabase } = require('../config/database');
-const User = require('../models/User');
-const Equipment = require('../models/Equipment');
+// Force reset equipment data for update
+await run('DELETE FROM equipment'); // Clear existing data
+console.log('⚠ Equipment table cleared for update');
+
+const equipments = [
+  {
+    name: 'UV aligner (SUSS)',
+    desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
+    loc: 'Yellow Room 101',
+    img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+  },
+  {
+    name: 'UV aligner (MIDAS)',
+    desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
+    loc: 'Yellow Room 102',
+    img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+  },
+  {
+    name: 'E-beam Evaporator',
+    desc: 'Electron Beam Physical Vapor Deposition System',
+    loc: 'Thin Film Lab',
+    img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+  },
+  {
+    name: 'Sputter System',
+    desc: 'RF/DC Magnetron Sputtering System for metal deposition',
+    loc: 'Thin Film Lab',
+    img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+  },
+  {
+    name: 'Reactive Ion Etcher (RIE)',
+    desc: 'Plasma etching system for silicon and dielectrics',
+    loc: 'Etch Lab 201',
+    img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+  },
+  {
+    name: 'FESEM',
+    desc: 'Field Emission Scanning Electron Microscope',
+    loc: 'Analysis Room',
+    img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+  },
+  {
+    name: 'Spincoater (SUSS)',
+    desc: 'SUSS MicroTec LabSpin for photoresist coating',
+    loc: 'Yellow Room 101',
+    img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+  },
+  {
+    name: 'Spincoater (MIDAS)',
+    desc: 'MIDAS Spin Coater for general purpose',
+    loc: 'Yellow Room 102',
+    img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+  },
+  {
+    name: 'RIE (SORONA)',
+    desc: 'Sorona Plasma Etch System',
+    loc: 'Etch Lab 202',
+    img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+  },
+  {
+    name: 'ICP-RIE (OXFORD)',
+    desc: 'Oxford Instruments Plasmalab System 100',
+    loc: 'Etch Lab 201',
+    img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+  }
+];
+
+for (const eq of equipments) {
+  await Equipment.create(eq.name, eq.desc, eq.loc, eq.img);
+}
+console.log(`✓ Updated equipment list with ${equipments.length} items`);
 
 // Import routes
-const authRoutes = require('../routes/auth');
+const { initDatabase, run } = require('../config/database');
 const equipmentRoutes = require('../routes/equipment');
 const reservationRoutes = require('../routes/reservation');
 
