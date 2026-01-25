@@ -69,6 +69,30 @@ const autoSeed = async () => {
           desc: 'Field Emission Scanning Electron Microscope',
           loc: 'Analysis Room',
           img: 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400'
+        },
+        {
+          name: 'Spincoater (SUSS)',
+          desc: 'SUSS MicroTec LabSpin for photoresist coating',
+          loc: 'Yellow Room 101',
+          img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        },
+        {
+          name: 'Spincoater (MIDAS)',
+          desc: 'MIDAS Spin Coater for general purpose',
+          loc: 'Yellow Room 102',
+          img: 'https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?w=400'
+        },
+        {
+          name: 'RIE (SORONA)',
+          desc: 'Sorona Plasma Etch System',
+          loc: 'Etch Lab 202',
+          img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
+        },
+        {
+          name: 'ICP-RIE (OXFORD)',
+          desc: 'Oxford Instruments Plasmalab System 100',
+          loc: 'Etch Lab 201',
+          img: 'https://images.unsplash.com/photo-1606324331299-a26d6f6c1b43?w=400'
         }
       ];
 
