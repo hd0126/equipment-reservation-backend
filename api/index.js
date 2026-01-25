@@ -129,8 +129,60 @@ app.use(async (req, res, next) => {
 
 // Routes (Handle both paths for Vercel routing compatibility)
 app.use(['/auth', '/api/auth'], authRoutes);
-app.use(['/equipment', '/api/equipment'], equipmentRoutes);
 app.use(['/reservations', '/api/reservations'], reservationRoutes);
+
+// Equipment Routes with File Upload Support
+const router = express.Router();
+
+// Get all equipment
+router.get('/', async (req, res) => {
+  try {
+    const equipment = await Equipment.findAll();
+    res.json(equipment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get equipment by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const equipment = await Equipment.findById(req.params.id);
+    if (!equipment) return res.status(404).json({ error: 'Equipment not found' });
+    res.json(equipment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create equipment (Admin only) - Supports both JSON URL and File Upload
+// Note: We redefine POST here to support file upload middleware
+router.post('/', upload.single('image'), async (req, res) => {
+  try {
+    const { name, description, location } = req.body;
+    let image_url = req.body.image_url; // Default to URL if provided
+
+    // If file is uploaded, convert to Base64
+    if (req.file) {
+      const b64 = Buffer.from(req.file.buffer).toString('base64');
+      const mimeType = req.file.mimetype;
+      image_url = `data:${mimeType};base64,${b64}`;
+    }
+
+    if (!image_url) {
+      // Fallback image
+      image_url = 'https://images.unsplash.com/photo-1581093458791-9d42e1d6b770?w=400';
+    }
+
+    const id = await Equipment.create(name, description, location, image_url);
+    res.status(201).json({ message: 'Equipment created successfully', id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mount manual equipment routes
+app.use(['/equipment', '/api/equipment'], router);
 
 // Health check endpoint (Handle both paths just in case)
 app.get(['/health', '/api/health'], (req, res) => {
