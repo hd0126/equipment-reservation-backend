@@ -43,12 +43,12 @@ app.use(async (req, res, next) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/equipment', equipmentRoutes);
-app.use('/api/reservations', reservationRoutes);
+app.use('/auth', authRoutes);
+app.use('/equipment', equipmentRoutes);
+app.use('/reservations', reservationRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Equipment Reservation System API' });
 });
 
