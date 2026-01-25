@@ -31,12 +31,11 @@ const autoSeed = async () => {
     }
 
     // Drop and recreate tables to fix schema issues (VARCHAR limit)
-    // Note: Order matters due to foreign keys
+    // Force reset equipment data for update
+    // Note: We use run() which was imported from database config
     try {
-      await run('DROP TABLE IF EXISTS reservations');
-      await run('DROP TABLE IF EXISTS equipment');
-
-      console.log('⚠ Tables dropped for schema update');
+      await run('DELETE FROM equipment');
+      console.log('⚠ Equipment table cleared for update v2');
 
       // Recreate Equipment table with TEXT type for flexibility
       await run(`
