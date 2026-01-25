@@ -1,14 +1,14 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initDatabase } = require('./config/database');
-const User = require('./models/User');
-const Equipment = require('./models/Equipment');
+const { initDatabase } = require('../config/database');
+const User = require('../models/User');
+const Equipment = require('../models/Equipment');
 
 // Import routes
-const authRoutes = require('./routes/auth');
-const equipmentRoutes = require('./routes/equipment');
-const reservationRoutes = require('./routes/reservation');
+const authRoutes = require('../routes/auth');
+const equipmentRoutes = require('../routes/equipment');
+const reservationRoutes = require('../routes/reservation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
