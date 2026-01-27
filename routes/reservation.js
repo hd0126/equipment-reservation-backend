@@ -54,7 +54,7 @@ router.get('/equipment/:id', verifyToken, async (req, res) => {
 router.get('/range', verifyToken, async (req, res) => {
   try {
     const { start, end } = req.query;
-    
+
     if (!start || !end) {
       return res.status(400).json({ error: 'Start and end dates are required' });
     }
@@ -71,7 +71,7 @@ router.get('/range', verifyToken, async (req, res) => {
 router.get('/:id', verifyToken, async (req, res) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
-    
+
     if (!reservation) {
       return res.status(404).json({ error: 'Reservation not found' });
     }
@@ -107,7 +107,7 @@ router.post('/check-conflict', verifyToken, async (req, res) => {
 
     const hasConflict = await Reservation.checkConflict(equipment_id, start_time, end_time, exclude_id);
 
-    res.json({ 
+    res.json({
       hasConflict,
       message: hasConflict ? 'Time slot is not available' : 'Time slot is available'
     });
@@ -245,6 +245,45 @@ router.patch('/:id/cancel', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Cancel reservation error:', error);
     res.status(500).json({ error: 'Failed to cancel reservation' });
+  }
+});
+
+// Restore cancelled reservation (admin only)
+router.patch('/:id/restore', verifyToken, isAdmin, async (req, res) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    if (reservation.status !== 'cancelled') {
+      return res.status(400).json({ error: 'Only cancelled reservations can be restored' });
+    }
+
+    // Check for conflicts before restoring
+    const hasConflict = await Reservation.checkConflict(
+      reservation.equipment_id,
+      reservation.start_time,
+      reservation.end_time,
+      req.params.id
+    );
+
+    if (hasConflict) {
+      return res.status(409).json({ error: 'Cannot restore - time slot is now occupied by another reservation' });
+    }
+
+    await Reservation.update(
+      req.params.id,
+      reservation.start_time,
+      reservation.end_time,
+      reservation.purpose,
+      'confirmed'
+    );
+
+    res.json({ message: 'Reservation restored successfully' });
+  } catch (error) {
+    console.error('Restore reservation error:', error);
+    res.status(500).json({ error: 'Failed to restore reservation' });
   }
 });
 

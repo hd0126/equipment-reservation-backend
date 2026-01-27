@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initDatabase, run, get } = require('../config/database');
+const { initDatabase, query, run, get } = require('../config/database');
 const User = require('../models/User');
 const Equipment = require('../models/Equipment');
 
@@ -217,53 +217,86 @@ router.delete('/:id', async (req, res) => {
 // Mount manual equipment routes
 app.use(['/equipment', '/api/equipment'], router);
 
-// Statistics API
-app.get(['/stats', '/api/stats'], async (req, res) => {
+// Statistics API (Enhanced)
+const { verifyToken: statsVerifyToken, isAdmin: statsIsAdmin } = require('../middleware/auth');
+app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, res) => {
   try {
-    // Equipment usage stats
-    const equipmentStats = await run(`
+    // Equipment usage stats (with total hours)
+    const equipmentStats = await query(`
       SELECT 
         e.id,
         e.name as equipment_name,
         COUNT(r.id) as total_reservations,
         COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
-        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed' 
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          ELSE 0 END
+        ), 0) as total_hours
       FROM equipment e
       LEFT JOIN reservations r ON e.id = r.equipment_id
       GROUP BY e.id, e.name
-      ORDER BY total_reservations DESC
+      ORDER BY total_hours DESC
     `);
 
-    // User usage stats
-    const userStats = await run(`
+    // User usage stats (with total hours)
+    const userStats = await query(`
       SELECT 
         u.id,
         u.username,
         u.email,
         COUNT(r.id) as total_reservations,
         COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
-        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed' 
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          ELSE 0 END
+        ), 0) as total_hours
       FROM users u
       LEFT JOIN reservations r ON u.id = r.user_id
       GROUP BY u.id, u.username, u.email
-      ORDER BY total_reservations DESC
+      ORDER BY total_hours DESC
+    `);
+
+    // User-Equipment usage matrix (top 20)
+    const userEquipmentStats = await query(`
+      SELECT 
+        u.username,
+        e.name as equipment_name,
+        COUNT(r.id) as reservation_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed' 
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          ELSE 0 END
+        ), 0) as total_hours
+      FROM reservations r
+      JOIN users u ON r.user_id = u.id
+      JOIN equipment e ON r.equipment_id = e.id
+      WHERE r.status = 'confirmed'
+      GROUP BY u.username, e.name
+      ORDER BY total_hours DESC
+      LIMIT 20
     `);
 
     // Monthly reservation trends (last 6 months)
-    const monthlyStats = await run(`
+    const monthlyStats = await query(`
       SELECT 
         TO_CHAR(DATE_TRUNC('month', start_time), 'YYYY-MM') as month,
-        COUNT(*) as count
+        COUNT(*) as count,
+        COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time)) / 3600), 0) as total_hours
       FROM reservations
-      WHERE start_time >= NOW() - INTERVAL '6 months'
+      WHERE start_time >= NOW() - INTERVAL '6 months' AND status = 'confirmed'
       GROUP BY DATE_TRUNC('month', start_time)
       ORDER BY month DESC
     `);
 
     res.json({
-      equipmentStats: equipmentStats.rows || [],
-      userStats: userStats.rows || [],
-      monthlyStats: monthlyStats.rows || []
+      equipmentStats: equipmentStats || [],
+      userStats: userStats || [],
+      userEquipmentStats: userEquipmentStats || [],
+      monthlyStats: monthlyStats || []
     });
   } catch (error) {
     console.error('Stats error:', error);
