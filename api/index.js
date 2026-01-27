@@ -221,28 +221,32 @@ app.use(['/equipment', '/api/equipment'], router);
 const { verifyToken: statsVerifyToken, isAdmin: statsIsAdmin } = require('../middleware/auth');
 app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, res) => {
   try {
+    const { start_date, end_date } = req.query;
+    const hasDateFilter = start_date && end_date;
+
     // Equipment usage stats (with total hours)
     const equipmentStats = await query(`
-      SELECT 
+      SELECT
         e.id,
         e.name as equipment_name,
         COUNT(r.id) as total_reservations,
         COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
         COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
         COALESCE(SUM(
-          CASE WHEN r.status = 'confirmed' 
-          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
           ELSE 0 END
         ), 0) as total_hours
       FROM equipment e
       LEFT JOIN reservations r ON e.id = r.equipment_id
+        ${hasDateFilter ? 'AND r.start_time >= $1 AND r.start_time < $2' : ''}
       GROUP BY e.id, e.name
       ORDER BY total_hours DESC
-    `);
+    `, hasDateFilter ? [start_date, end_date] : []);
 
     // User usage stats (with total hours)
     const userStats = await query(`
-      SELECT 
+      SELECT
         u.id,
         u.username,
         u.email,
@@ -250,47 +254,50 @@ app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, re
         COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
         COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
         COALESCE(SUM(
-          CASE WHEN r.status = 'confirmed' 
-          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
           ELSE 0 END
         ), 0) as total_hours
       FROM users u
       LEFT JOIN reservations r ON u.id = r.user_id
+        ${hasDateFilter ? 'AND r.start_time >= $1 AND r.start_time < $2' : ''}
       GROUP BY u.id, u.username, u.email
       ORDER BY total_hours DESC
-    `);
+    `, hasDateFilter ? [start_date, end_date] : []);
 
     // User-Equipment usage matrix (top 20)
     const userEquipmentStats = await query(`
-      SELECT 
+      SELECT
         u.username,
         e.name as equipment_name,
         COUNT(r.id) as reservation_count,
         COALESCE(SUM(
-          CASE WHEN r.status = 'confirmed' 
-          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600 
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
           ELSE 0 END
         ), 0) as total_hours
       FROM reservations r
       JOIN users u ON r.user_id = u.id
       JOIN equipment e ON r.equipment_id = e.id
       WHERE r.status = 'confirmed'
+        ${hasDateFilter ? 'AND r.start_time >= $1 AND r.start_time < $2' : ''}
       GROUP BY u.username, e.name
       ORDER BY total_hours DESC
       LIMIT 20
-    `);
+    `, hasDateFilter ? [start_date, end_date] : []);
 
-    // Monthly reservation trends (last 6 months)
+    // Monthly reservation trends (last 6 months or filtered period)
     const monthlyStats = await query(`
-      SELECT 
+      SELECT
         TO_CHAR(DATE_TRUNC('month', start_time), 'YYYY-MM') as month,
         COUNT(*) as count,
         COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time)) / 3600), 0) as total_hours
       FROM reservations
-      WHERE start_time >= NOW() - INTERVAL '6 months' AND status = 'confirmed'
+      WHERE status = 'confirmed'
+        ${hasDateFilter ? 'AND start_time >= $1 AND start_time < $2' : 'AND start_time >= NOW() - INTERVAL \'6 months\''}
       GROUP BY DATE_TRUNC('month', start_time)
       ORDER BY month DESC
-    `);
+    `, hasDateFilter ? [start_date, end_date] : []);
 
     res.json({
       equipmentStats: equipmentStats || [],
