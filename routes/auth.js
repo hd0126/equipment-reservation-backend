@@ -137,4 +137,87 @@ router.get('/me', verifyToken, async (req, res) => {
   }
 });
 
+// Get all users (admin only)
+router.get('/users', verifyToken, async (req, res) => {
+  try {
+    // Check if admin
+    if (req.user.user_role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const { query } = require('../config/database');
+    const users = await query('SELECT id, username, email, department, phone, user_role, supervisor FROM users ORDER BY id');
+    res.json(users);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// Get single user (admin only)
+router.get('/users/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.user.user_role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// Update user (admin only)
+router.put('/users/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.user.user_role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    const { username, email, department, phone, userRole, supervisor } = req.body;
+    const { run } = require('../config/database');
+
+    await run(`
+      UPDATE users 
+      SET username = $1, email = $2, department = $3, phone = $4, user_role = $5, supervisor = $6
+      WHERE id = $7
+    `, [username, email, department, phone, userRole, supervisor || null, req.params.id]);
+
+    res.json({ message: '사용자 정보가 수정되었습니다.' });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: '사용자 수정에 실패했습니다.' });
+  }
+});
+
+// Delete user (admin only)
+router.delete('/users/:id', verifyToken, async (req, res) => {
+  try {
+    if (req.user.user_role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    // Prevent self-deletion
+    if (req.params.id == req.user.id) {
+      return res.status(400).json({ error: '자기 자신은 삭제할 수 없습니다.' });
+    }
+
+    const { run } = require('../config/database');
+
+    // Delete related permissions first
+    await run('DELETE FROM equipment_permissions WHERE user_id = $1', [req.params.id]);
+    // Delete user
+    await run('DELETE FROM users WHERE id = $1', [req.params.id]);
+
+    res.json({ message: '사용자가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: '사용자 삭제에 실패했습니다.' });
+  }
+});
+
 module.exports = router;
+
