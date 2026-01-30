@@ -19,20 +19,24 @@ pool.on('error', (err) => {
 // Initialize database tables
 const initDatabase = async () => {
   try {
-    // Create Users table
+    // Create Users table with extended fields
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'user' CHECK(role IN ('user', 'admin')),
+        role VARCHAR(50) DEFAULT 'user',
+        department VARCHAR(50),
+        phone VARCHAR(20),
+        user_role VARCHAR(20) DEFAULT 'staff',
+        supervisor VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Users table ready');
 
-    // Create Equipment table
+    // Create Equipment table with manager
     await pool.query(`
       CREATE TABLE IF NOT EXISTS equipment (
         id SERIAL PRIMARY KEY,
@@ -44,6 +48,7 @@ const initDatabase = async () => {
         brochure_url TEXT,
         manual_url TEXT,
         quick_guide_url TEXT,
+        manager_id INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -64,14 +69,60 @@ const initDatabase = async () => {
     `);
     console.log('Reservations table ready');
 
-    // Add document URL columns to existing equipment table (migration)
+    // Create Equipment Permissions table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS equipment_permissions (
+        id SERIAL PRIMARY KEY,
+        equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        granted_by INTEGER REFERENCES users(id),
+        granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(equipment_id, user_id)
+      )
+    `);
+    console.log('Equipment Permissions table ready');
+
+    // Create Equipment Logs table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS equipment_logs (
+        id SERIAL PRIMARY KEY,
+        equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id),
+        reservation_id INTEGER REFERENCES reservations(id),
+        log_type VARCHAR(20) DEFAULT 'usage_remark',
+        content TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Equipment Logs table ready');
+
+    // Migration: Add new columns to existing tables
     try {
+      // Users table migrations
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(50)`);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)`);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_role VARCHAR(20) DEFAULT 'staff'`);
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS supervisor VARCHAR(100)`);
+
+      // Migrate role to user_role: admin → admin, user → staff
+      await pool.query(`UPDATE users SET user_role = 'admin' WHERE role = 'admin' AND (user_role IS NULL OR user_role = 'staff')`);
+      await pool.query(`UPDATE users SET user_role = 'staff' WHERE role = 'user' AND (user_role IS NULL OR user_role = '')`);
+
+      // Equipment table migrations
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS brochure_url TEXT`);
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manual_url TEXT`);
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS quick_guide_url TEXT`);
-      console.log('Document URL columns ready');
+      await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_id INTEGER REFERENCES users(id)`);
+
+      // Set admin as default manager for equipment without manager
+      await pool.query(`
+        UPDATE equipment SET manager_id = (SELECT id FROM users WHERE user_role = 'admin' LIMIT 1)
+        WHERE manager_id IS NULL
+      `);
+
+      console.log('Migration columns ready');
     } catch (e) {
-      // Columns might already exist, ignore error
+      console.log('Migration note:', e.message);
     }
 
     console.log('✓ Database initialized successfully');

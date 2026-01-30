@@ -8,35 +8,62 @@ const router = express.Router();
 // Register new user
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { username, email, password, department, phone, userRole, supervisor } = req.body;
 
     // Validation
     if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email, and password are required' });
+      return res.status(400).json({ error: '이름, 이메일, 비밀번호는 필수입니다.' });
+    }
+
+    if (!department) {
+      return res.status(400).json({ error: '소속을 선택해주세요.' });
+    }
+
+    if (!phone) {
+      return res.status(400).json({ error: '연락처를 입력해주세요.' });
+    }
+
+    if (!userRole) {
+      return res.status(400).json({ error: '신분을 선택해주세요.' });
+    }
+
+    // Validate user role
+    const validRoles = ['intern', 'student', 'staff', 'equipment_manager', 'admin'];
+    if (!validRoles.includes(userRole)) {
+      return res.status(400).json({ error: '유효하지 않은 신분입니다.' });
+    }
+
+    // Intern and student must have supervisor
+    if (['intern', 'student'].includes(userRole) && !supervisor) {
+      return res.status(400).json({ error: '인턴/학생연구원은 연수책임자를 입력해야 합니다.' });
     }
 
     // Check if user already exists
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(400).json({ error: '이미 등록된 이메일입니다.' });
     }
 
     const existingUsername = await User.findByUsername(username);
     if (existingUsername) {
-      return res.status(400).json({ error: 'Username already taken' });
+      return res.status(400).json({ error: '이미 사용 중인 이름입니다.' });
     }
 
-    // Create user (only allow admin role if explicitly set, otherwise default to user)
-    const userRole = role === 'admin' ? 'admin' : 'user';
-    const userId = await User.create(username, email, password, userRole);
+    // Set legacy role based on new userRole
+    const legacyRole = ['equipment_manager', 'admin'].includes(userRole) ? 'admin' : 'user';
+
+    const userId = await User.create(
+      username, email, password, legacyRole,
+      department, phone, userRole, supervisor || null
+    );
 
     res.status(201).json({
-      message: 'User registered successfully',
+      message: '회원가입이 완료되었습니다.',
       userId
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: '회원가입에 실패했습니다.' });
   }
 });
 
@@ -62,21 +89,32 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Generate JWT token
+    // Generate JWT token with extended fields
     const token = jwt.sign(
-      { id: user.id, username: user.username, email: user.email, role: user.role },
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        user_role: user.user_role,
+        department: user.department
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
     res.json({
-      message: 'Login successful',
+      message: '로그인 성공',
       token,
       user: {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: user.role
+        role: user.role,
+        user_role: user.user_role,
+        department: user.department,
+        phone: user.phone,
+        supervisor: user.supervisor
       }
     });
   } catch (error) {

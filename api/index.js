@@ -136,6 +136,14 @@ app.use(['/auth', '/api/auth'], authRoutes);
 app.use(['/reservations', '/api/reservations'], reservationRoutes);
 app.use(['/upload', '/api/upload'], uploadRoutes);
 
+// Permission Routes
+const permissionRoutes = require('../routes/permission');
+app.use(['/permissions', '/api/permissions'], permissionRoutes);
+
+// Equipment Log Routes
+const equipmentLogRoutes = require('../routes/equipmentLog');
+app.use(['/equipment-logs', '/api/equipment-logs'], equipmentLogRoutes);
+
 // Equipment Routes with File Upload Support
 const router = express.Router();
 
