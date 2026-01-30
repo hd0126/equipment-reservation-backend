@@ -57,9 +57,11 @@ class Reservation {
     const sql = `
       SELECT 
         r.*,
+        u.username,
         e.name as equipment_name,
         e.location as equipment_location
       FROM reservations r
+      JOIN users u ON r.user_id = u.id
       JOIN equipment e ON r.equipment_id = e.id
       WHERE r.user_id = $1
       ORDER BY r.start_time DESC
