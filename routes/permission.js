@@ -128,21 +128,17 @@ router.get('/summary', verifyToken, isAdmin, async (req, res) => {
         const { query } = require('../config/database');
         const userSummary = await query(`
             SELECT u.id, u.username, u.department, u.user_role, 
-                   COUNT(ep.id) as permission_count
+                   (SELECT COUNT(*) FROM equipment_permissions WHERE user_id = u.id) as permission_count
             FROM users u
-            LEFT JOIN equipment_permissions ep ON u.id = ep.user_id
-            GROUP BY u.id, u.username, u.department, u.user_role
             ORDER BY permission_count DESC, u.username
         `);
 
         // Equipment summary - permissions count per equipment  
         const equipmentSummary = await query(`
             SELECT e.id, e.name, u.username as manager_name,
-                   COUNT(ep.id) as permission_count
+                   (SELECT COUNT(*) FROM equipment_permissions WHERE equipment_id = e.id) as permission_count
             FROM equipment e
             LEFT JOIN users u ON e.manager_id = u.id
-            LEFT JOIN equipment_permissions ep ON e.id = ep.equipment_id
-            GROUP BY e.id, e.name, u.username
             ORDER BY e.name
         `);
 
