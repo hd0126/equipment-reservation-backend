@@ -110,6 +110,17 @@ router.get('/my', verifyToken, async (req, res) => {
     }
 });
 
+// Get permissions for specific user (admin only)
+router.get('/user/:userId', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const permissions = await Permission.getByUser(req.params.userId);
+        res.json(permissions);
+    } catch (error) {
+        console.error('Get user permissions error:', error);
+        res.status(500).json({ error: '권한 조회에 실패했습니다.' });
+    }
+});
+
 // Get permission summary for admin dashboard
 router.get('/summary', verifyToken, isAdmin, async (req, res) => {
     try {
