@@ -110,4 +110,36 @@ router.get('/my', verifyToken, async (req, res) => {
     }
 });
 
+// Get permission summary for admin dashboard
+router.get('/summary', verifyToken, isAdmin, async (req, res) => {
+    try {
+        // User summary - permissions count per user
+        const { query } = require('../config/database');
+        const userSummary = await query(`
+            SELECT u.id, u.username, u.department, u.user_role, 
+                   COUNT(ep.id) as permission_count
+            FROM users u
+            LEFT JOIN equipment_permissions ep ON u.id = ep.user_id
+            GROUP BY u.id, u.username, u.department, u.user_role
+            ORDER BY permission_count DESC, u.username
+        `);
+
+        // Equipment summary - permissions count per equipment  
+        const equipmentSummary = await query(`
+            SELECT e.id, e.name, u.username as manager_name,
+                   COUNT(ep.id) as permission_count
+            FROM equipment e
+            LEFT JOIN users u ON e.manager_id = u.id
+            LEFT JOIN equipment_permissions ep ON e.id = ep.equipment_id
+            GROUP BY e.id, e.name, u.username
+            ORDER BY e.name
+        `);
+
+        res.json({ userSummary, equipmentSummary });
+    } catch (error) {
+        console.error('Get permission summary error:', error);
+        res.status(500).json({ error: '권한 현황 조회에 실패했습니다.' });
+    }
+});
+
 module.exports = router;
