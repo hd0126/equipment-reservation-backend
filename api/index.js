@@ -9,6 +9,7 @@ const Equipment = require('../models/Equipment');
 const authRoutes = require('../routes/auth');
 const equipmentRoutes = require('../routes/equipment');
 const reservationRoutes = require('../routes/reservation');
+const uploadRoutes = require('../routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -133,6 +134,7 @@ app.use(async (req, res, next) => {
 // Routes (Handle both paths for Vercel routing compatibility)
 app.use(['/auth', '/api/auth'], authRoutes);
 app.use(['/reservations', '/api/reservations'], reservationRoutes);
+app.use(['/upload', '/api/upload'], uploadRoutes);
 
 // Equipment Routes with File Upload Support
 const router = express.Router();
@@ -187,7 +189,7 @@ router.post('/', upload.single('image'), async (req, res) => {
 // Update equipment
 router.put('/:id', upload.single('image'), async (req, res) => {
   try {
-    const { name, description, location, status } = req.body;
+    const { name, description, location, status, brochure_url, manual_url, quick_guide_url } = req.body;
     let image_url = req.body.image_url;
 
     if (req.file) {
@@ -196,8 +198,8 @@ router.put('/:id', upload.single('image'), async (req, res) => {
       image_url = `data:${mimeType};base64,${b64}`;
     }
 
-    // Call Equipment.update with individual arguments, not an object
-    await Equipment.update(req.params.id, name, description, location, status, image_url);
+    // Call Equipment.update with document URLs
+    await Equipment.update(req.params.id, name, description, location, status, image_url, brochure_url, manual_url, quick_guide_url);
     res.json({ message: 'Equipment updated successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });

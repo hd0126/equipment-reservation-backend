@@ -41,6 +41,9 @@ const initDatabase = async () => {
         location VARCHAR(255),
         status VARCHAR(50) DEFAULT 'available' CHECK(status IN ('available', 'maintenance')),
         image_url TEXT,
+        brochure_url TEXT,
+        manual_url TEXT,
+        quick_guide_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -60,6 +63,16 @@ const initDatabase = async () => {
       )
     `);
     console.log('Reservations table ready');
+
+    // Add document URL columns to existing equipment table (migration)
+    try {
+      await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS brochure_url TEXT`);
+      await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manual_url TEXT`);
+      await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS quick_guide_url TEXT`);
+      console.log('Document URL columns ready');
+    } catch (e) {
+      // Columns might already exist, ignore error
+    }
 
     console.log('✓ Database initialized successfully');
   } catch (err) {
