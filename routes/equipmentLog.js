@@ -51,4 +51,61 @@ router.get('/recent', verifyToken, async (req, res) => {
     }
 });
 
+// Update log (author or admin only)
+router.put('/:logId', verifyToken, async (req, res) => {
+    try {
+        const { content } = req.body;
+        const logId = req.params.logId;
+
+        if (!content || content.trim() === '') {
+            return res.status(400).json({ error: '내용을 입력해주세요.' });
+        }
+
+        // Check permission
+        const log = await EquipmentLog.findById(logId);
+        if (!log) {
+            return res.status(404).json({ error: '이력을 찾을 수 없습니다.' });
+        }
+
+        const isAuthor = log.user_id === req.user.id;
+        const isAdmin = req.user.user_role === 'admin';
+
+        if (!isAuthor && !isAdmin) {
+            return res.status(403).json({ error: '이 이력을 수정할 권한이 없습니다.' });
+        }
+
+        await EquipmentLog.update(logId, content);
+        res.json({ message: '이력이 수정되었습니다.' });
+    } catch (error) {
+        console.error('Update log error:', error);
+        res.status(500).json({ error: '이력 수정에 실패했습니다.' });
+    }
+});
+
+// Delete log (author or admin only)
+router.delete('/:logId', verifyToken, async (req, res) => {
+    try {
+        const logId = req.params.logId;
+
+        // Check permission
+        const log = await EquipmentLog.findById(logId);
+        if (!log) {
+            return res.status(404).json({ error: '이력을 찾을 수 없습니다.' });
+        }
+
+        const isAuthor = log.user_id === req.user.id;
+        const isAdmin = req.user.user_role === 'admin';
+
+        if (!isAuthor && !isAdmin) {
+            return res.status(403).json({ error: '이 이력을 삭제할 권한이 없습니다.' });
+        }
+
+        await EquipmentLog.delete(logId);
+        res.json({ message: '이력이 삭제되었습니다.' });
+    } catch (error) {
+        console.error('Delete log error:', error);
+        res.status(500).json({ error: '이력 삭제에 실패했습니다.' });
+    }
+});
+
 module.exports = router;
