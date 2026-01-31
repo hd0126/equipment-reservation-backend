@@ -103,7 +103,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     res.json({ message: 'Equipment updated successfully' });
   } catch (error) {
     console.error('Update equipment error:', error);
-    res.status(500).json({ error: 'Failed to update equipment' });
+    res.status(500).json({ error: 'Failed to update equipment', details: error.message });
   }
 });
 
