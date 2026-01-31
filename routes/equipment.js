@@ -43,13 +43,13 @@ router.get('/:id', async (req, res) => {
 // Create equipment (admin only)
 router.post('/', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { name, description, location, status, image_url } = req.body;
+    const { name, description, location, status, image_url, image_file_url } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Equipment name is required' });
     }
 
-    const equipmentId = await Equipment.create(name, description, location, status, image_url);
+    const equipmentId = await Equipment.create(name, description, location, status, image_url, null, null, null, image_file_url);
     res.status(201).json({
       message: 'Equipment created successfully',
       equipmentId
@@ -63,7 +63,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
 // Update equipment (admin only)
 router.put('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
-    const { name, description, location, status, image_url } = req.body;
+    const { name, description, location, status, image_url, brochure_url, manual_url, quick_guide_url, image_file_url } = req.body;
 
     const equipment = await Equipment.findById(req.params.id);
     if (!equipment) {
@@ -73,10 +73,14 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
     await Equipment.update(
       req.params.id,
       name || equipment.name,
-      description || equipment.description,
-      location || equipment.location,
+      description !== undefined ? description : equipment.description,
+      location !== undefined ? location : equipment.location,
       status || equipment.status,
-      image_url !== undefined ? image_url : equipment.image_url
+      image_url !== undefined ? image_url : equipment.image_url,
+      brochure_url !== undefined ? brochure_url : equipment.brochure_url,
+      manual_url !== undefined ? manual_url : equipment.manual_url,
+      quick_guide_url !== undefined ? quick_guide_url : equipment.quick_guide_url,
+      image_file_url !== undefined ? image_file_url : equipment.image_file_url
     );
 
     res.json({ message: 'Equipment updated successfully' });

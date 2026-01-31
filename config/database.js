@@ -113,6 +113,8 @@ const initDatabase = async () => {
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manual_url TEXT`);
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS quick_guide_url TEXT`);
       await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS manager_id INTEGER REFERENCES users(id)`);
+      await pool.query(`ALTER TABLE equipment ADD COLUMN IF NOT EXISTS image_file_url TEXT`);
+      // image_url: 사용자 직접 입력 URL, image_file_url: R2 업로드 파일 URL
 
       // Set admin as default manager for equipment without manager
       await pool.query(`

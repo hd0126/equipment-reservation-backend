@@ -2,13 +2,13 @@ const { query, run, get } = require('../config/database');
 
 class Equipment {
   // Create new equipment
-  static async create(name, description, location, status = 'available', imageUrl = null, brochureUrl = null, manualUrl = null, quickGuideUrl = null) {
+  static async create(name, description, location, status = 'available', imageUrl = null, brochureUrl = null, manualUrl = null, quickGuideUrl = null, imageFileUrl = null) {
     const sql = `
-      INSERT INTO equipment (name, description, location, status, image_url, brochure_url, manual_url, quick_guide_url)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO equipment (name, description, location, status, image_url, brochure_url, manual_url, quick_guide_url, image_file_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `;
-    const result = await get(sql, [name, description, location, status, imageUrl, brochureUrl, manualUrl, quickGuideUrl]);
+    const result = await get(sql, [name, description, location, status, imageUrl, brochureUrl, manualUrl, quickGuideUrl, imageFileUrl]);
     return result.id;
   }
 
@@ -30,13 +30,13 @@ class Equipment {
   }
 
   // Update equipment
-  static async update(id, name, description, location, status, imageUrl, brochureUrl = null, manualUrl = null, quickGuideUrl = null) {
+  static async update(id, name, description, location, status, imageUrl, brochureUrl = null, manualUrl = null, quickGuideUrl = null, imageFileUrl = null) {
     const sql = `
       UPDATE equipment 
-      SET name = $1, description = $2, location = $3, status = $4, image_url = $5, brochure_url = $6, manual_url = $7, quick_guide_url = $8
-      WHERE id = $9
+      SET name = $1, description = $2, location = $3, status = $4, image_url = $5, brochure_url = $6, manual_url = $7, quick_guide_url = $8, image_file_url = $9
+      WHERE id = $10
     `;
-    return await run(sql, [name, description, location, status, imageUrl, brochureUrl, manualUrl, quickGuideUrl, id]);
+    return await run(sql, [name, description, location, status, imageUrl, brochureUrl, manualUrl, quickGuideUrl, imageFileUrl, id]);
   }
 
   // Delete equipment
