@@ -65,22 +65,39 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { name, description, location, status, image_url, brochure_url, manual_url, quick_guide_url, image_file_url } = req.body;
 
+    console.log('[DEBUG] PUT /equipment/:id received:', { id: req.params.id, image_url, image_file_url });
+
     const equipment = await Equipment.findById(req.params.id);
     if (!equipment) {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
+    const updateParams = {
+      id: req.params.id,
+      name: name || equipment.name,
+      description: description !== undefined ? description : equipment.description,
+      location: location !== undefined ? location : equipment.location,
+      status: status || equipment.status,
+      image_url: image_url !== undefined ? image_url : equipment.image_url,
+      brochure_url: brochure_url !== undefined ? brochure_url : equipment.brochure_url,
+      manual_url: manual_url !== undefined ? manual_url : equipment.manual_url,
+      quick_guide_url: quick_guide_url !== undefined ? quick_guide_url : equipment.quick_guide_url,
+      image_file_url: image_file_url !== undefined ? image_file_url : equipment.image_file_url
+    };
+
+    console.log('[DEBUG] Calling Equipment.update with:', updateParams);
+
     await Equipment.update(
-      req.params.id,
-      name || equipment.name,
-      description !== undefined ? description : equipment.description,
-      location !== undefined ? location : equipment.location,
-      status || equipment.status,
-      image_url !== undefined ? image_url : equipment.image_url,
-      brochure_url !== undefined ? brochure_url : equipment.brochure_url,
-      manual_url !== undefined ? manual_url : equipment.manual_url,
-      quick_guide_url !== undefined ? quick_guide_url : equipment.quick_guide_url,
-      image_file_url !== undefined ? image_file_url : equipment.image_file_url
+      updateParams.id,
+      updateParams.name,
+      updateParams.description,
+      updateParams.location,
+      updateParams.status,
+      updateParams.image_url,
+      updateParams.brochure_url,
+      updateParams.manual_url,
+      updateParams.quick_guide_url,
+      updateParams.image_file_url
     );
 
     res.json({ message: 'Equipment updated successfully' });
