@@ -124,7 +124,9 @@ const initDatabase = async () => {
 
       // Equipment Permissions table migrations
       await pool.query(`ALTER TABLE equipment_permissions ADD COLUMN IF NOT EXISTS permission_level VARCHAR(20) DEFAULT 'normal'`);
+      await pool.query(`ALTER TABLE equipment_permissions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP`);
       // permission_level: 'normal' (승인필요), 'autonomous' (자율사용), 'manager' (장비담당)
+      // updated_at: 권한 레벨이 변경된 날짜
 
       console.log('Migration columns ready');
     } catch (e) {

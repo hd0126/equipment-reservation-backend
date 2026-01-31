@@ -24,7 +24,7 @@ class Permission {
   static async updateLevel(equipmentId, userId, permissionLevel) {
     const sql = `
       UPDATE equipment_permissions 
-      SET permission_level = $3 
+      SET permission_level = $3, updated_at = CURRENT_TIMESTAMP
       WHERE equipment_id = $1 AND user_id = $2
     `;
     return await run(sql, [equipmentId, userId, permissionLevel]);
