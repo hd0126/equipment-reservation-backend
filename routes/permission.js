@@ -185,10 +185,26 @@ router.get('/my/managed', verifyToken, async (req, res) => {
     }
 });
 
-// Get permissions for specific user (admin only)
-router.get('/user/:userId', verifyToken, isAdmin, async (req, res) => {
+// Get permissions for specific user (admin or equipment manager)
+router.get('/user/:userId', verifyToken, async (req, res) => {
     try {
-        const permissions = await Permission.getByUser(req.params.userId);
+        const requesterId = req.user.id;
+        const requesterRole = req.user.user_role;
+
+        let permissions = await Permission.getByUser(req.params.userId);
+
+        // 장비담당자면 본인이 관리하는 장비에 대한 권한만 반환
+        if (requesterRole !== 'admin') {
+            const managedEquipment = await Permission.getManagedEquipment(requesterId);
+            const managedIds = managedEquipment.map(e => e.id);
+
+            if (managedIds.length === 0) {
+                return res.status(403).json({ error: '권한이 없습니다.' });
+            }
+
+            permissions = permissions.filter(p => managedIds.includes(p.equipment_id));
+        }
+
         res.json(permissions);
     } catch (error) {
         console.error('Get user permissions error:', error);
