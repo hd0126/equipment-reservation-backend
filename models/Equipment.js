@@ -22,14 +22,14 @@ class Equipment {
   static async getAll() {
     const sql = `
       SELECT e.*, 
-             m.username as manager_name
+             m.manager_names as manager_name
       FROM equipment e
       LEFT JOIN (
-        SELECT DISTINCT ON (ep.equipment_id) ep.equipment_id, u.username
+        SELECT ep.equipment_id, STRING_AGG(u.username, ', ' ORDER BY ep.granted_at DESC) as manager_names
         FROM equipment_permissions ep
         JOIN users u ON ep.user_id = u.id
         WHERE ep.permission_level = 'manager'
-        ORDER BY ep.equipment_id, ep.granted_at DESC
+        GROUP BY ep.equipment_id
       ) m ON e.id = m.equipment_id
       ORDER BY e.created_at DESC
     `;
