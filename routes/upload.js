@@ -70,7 +70,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
 
 // 파일 삭제 (관리자 전용)
 // DELETE /api/upload
-// Body: JSON { equipmentId: number, type: 'brochure' | 'manual' | 'quick_guide', fileUrl: string }
+// Body: JSON { equipmentId: number, type: 'brochure' | 'manual' | 'quick_guide' | 'image', fileUrl: string }
 router.delete('/', verifyToken, isAdmin, async (req, res) => {
     try {
         const { equipmentId, type, fileUrl } = req.body;
@@ -80,12 +80,12 @@ router.delete('/', verifyToken, isAdmin, async (req, res) => {
         }
 
         // 타입 검증
-        const validTypes = ['brochure', 'manual', 'quick_guide'];
+        const validTypes = ['brochure', 'manual', 'quick_guide', 'image'];
         if (!validTypes.includes(type)) {
-            return res.status(400).json({ error: '유효하지 않은 문서 타입입니다.' });
+            return res.status(400).json({ error: '유효하지 않은 타입입니다.' });
         }
 
-        // URL에서 파일 경로 추출
+        // URL에서 파일 경로 추출 후 R2에서 삭제
         const publicUrl = process.env.R2_PUBLIC_URL;
         if (publicUrl && fileUrl.startsWith(publicUrl)) {
             const filePath = fileUrl.replace(publicUrl + '/', '');
@@ -97,6 +97,7 @@ router.delete('/', verifyToken, isAdmin, async (req, res) => {
             'brochure': 'brochure_url',
             'manual': 'manual_url',
             'quick_guide': 'quick_guide_url',
+            'image': 'image_url',
         };
         const column = columnMap[type];
 
