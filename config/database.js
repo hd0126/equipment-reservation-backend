@@ -120,6 +120,10 @@ const initDatabase = async () => {
         WHERE manager_id IS NULL
       `);
 
+      // Equipment Permissions table migrations
+      await pool.query(`ALTER TABLE equipment_permissions ADD COLUMN IF NOT EXISTS permission_level VARCHAR(20) DEFAULT 'normal'`);
+      // permission_level: 'normal' (승인필요), 'autonomous' (자율사용), 'manager' (장비담당)
+
       console.log('Migration columns ready');
     } catch (e) {
       console.log('Migration note:', e.message);

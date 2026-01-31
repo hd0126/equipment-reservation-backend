@@ -156,6 +156,25 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(409).json({ error: 'Time slot is already reserved' });
     }
 
+    // Determine reservation status based on user permission level
+    const Permission = require('../models/Permission');
+    let initialStatus = 'pending'; // Default: needs approval
+
+    // Admin is always auto-confirmed
+    if (req.user.user_role === 'admin') {
+      initialStatus = 'confirmed';
+    } else {
+      // Check permission level for this equipment
+      const permission = await Permission.hasPermission(equipment_id, req.user.id);
+      if (permission) {
+        // autonomous and manager get auto-confirmed
+        if (permission.permission_level === 'autonomous' || permission.permission_level === 'manager') {
+          initialStatus = 'confirmed';
+        }
+        // normal stays as pending
+      }
+    }
+
     // Create reservation
     const reservationId = await Reservation.create(
       equipment_id,
@@ -163,12 +182,15 @@ router.post('/', verifyToken, async (req, res) => {
       start_time,
       end_time,
       purpose || '',
-      'confirmed'
+      initialStatus
     );
 
     res.status(201).json({
-      message: 'Reservation created successfully',
-      reservationId
+      message: initialStatus === 'confirmed'
+        ? '예약이 확정되었습니다.'
+        : '예약이 등록되었습니다. 승인 대기 중입니다.',
+      reservationId,
+      status: initialStatus
     });
   } catch (error) {
     console.error('Create reservation error:', error);

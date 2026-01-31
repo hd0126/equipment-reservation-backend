@@ -2,13 +2,13 @@ const express = require('express');
 const Permission = require('../models/Permission');
 const User = require('../models/User');
 const { verifyToken, isAdmin } = require('../middleware/auth');
-const { get } = require('../config/database');
+const { get, query } = require('../config/database');
 
 const router = express.Router();
 
 // Middleware to check if user can manage equipment permissions
 const canManageEquipment = async (req, res, next) => {
-    const { equipmentId } = req.params;
+    const equipmentId = req.params.equipmentId || req.params.id;
     const userId = req.user.id;
     const userRole = req.user.user_role;
 
@@ -17,7 +17,13 @@ const canManageEquipment = async (req, res, next) => {
         return next();
     }
 
-    // Equipment manager can manage their own equipment
+    // Check if user has manager permission for this equipment
+    const canManage = await Permission.canManageEquipment(equipmentId, userId);
+    if (canManage) {
+        return next();
+    }
+
+    // Legacy: Equipment manager role can manage their own equipment
     if (userRole === 'equipment_manager') {
         const equipment = await get('SELECT manager_id FROM equipment WHERE id = $1', [equipmentId]);
         if (equipment && equipment.manager_id === userId) {
@@ -50,21 +56,49 @@ router.get('/equipment/:equipmentId/candidates', verifyToken, canManageEquipment
     }
 });
 
-// Grant permission
+// Grant permission with level
 router.post('/equipment/:equipmentId/grant', verifyToken, canManageEquipment, async (req, res) => {
     try {
-        const { userId } = req.body;
+        const { userId, permissionLevel } = req.body;
         const equipmentId = req.params.equipmentId;
+        const granterId = req.user.id;
+        const granterRole = req.user.user_role;
 
         if (!userId) {
             return res.status(400).json({ error: '사용자를 선택해주세요.' });
         }
 
-        await Permission.grant(equipmentId, userId, req.user.id);
+        // Only admin can grant manager permission
+        if (permissionLevel === 'manager' && granterRole !== 'admin') {
+            return res.status(403).json({ error: '장비담당자 권한은 관리자만 부여할 수 있습니다.' });
+        }
+
+        const level = permissionLevel || 'normal';
+        await Permission.grant(equipmentId, userId, granterId, level);
         res.json({ message: '권한이 부여되었습니다.' });
     } catch (error) {
         console.error('Grant permission error:', error);
         res.status(500).json({ error: '권한 부여에 실패했습니다.' });
+    }
+});
+
+// Update permission level
+router.put('/equipment/:equipmentId/user/:userId', verifyToken, canManageEquipment, async (req, res) => {
+    try {
+        const { equipmentId, userId } = req.params;
+        const { permissionLevel } = req.body;
+        const granterRole = req.user.user_role;
+
+        // Only admin can set manager permission
+        if (permissionLevel === 'manager' && granterRole !== 'admin') {
+            return res.status(403).json({ error: '장비담당자 권한은 관리자만 부여할 수 있습니다.' });
+        }
+
+        await Permission.updateLevel(equipmentId, userId, permissionLevel);
+        res.json({ message: '권한이 수정되었습니다.' });
+    } catch (error) {
+        console.error('Update permission error:', error);
+        res.status(500).json({ error: '권한 수정에 실패했습니다.' });
     }
 });
 
@@ -80,19 +114,29 @@ router.delete('/equipment/:equipmentId/revoke/:userId', verifyToken, canManageEq
     }
 });
 
-// Check if current user has permission for equipment
+// Check if current user has permission for equipment (with level info)
 router.get('/check/:equipmentId', verifyToken, async (req, res) => {
     try {
         const userRole = req.user.user_role;
+        const equipmentId = req.params.equipmentId;
+        const userId = req.user.id;
 
-        // Managers and admins always have permission
-        if (User.isManager(userRole)) {
-            return res.json({ hasPermission: true, reason: 'manager' });
+        // Admin always has full permission
+        if (userRole === 'admin') {
+            return res.json({ hasPermission: true, permissionLevel: 'admin', reason: 'admin' });
         }
 
         // Check explicit permission
-        const hasPermission = await Permission.hasPermission(req.params.equipmentId, req.user.id);
-        res.json({ hasPermission, reason: hasPermission ? 'granted' : 'none' });
+        const permission = await Permission.hasPermission(equipmentId, userId);
+        if (permission) {
+            return res.json({
+                hasPermission: true,
+                permissionLevel: permission.permission_level,
+                reason: 'granted'
+            });
+        }
+
+        res.json({ hasPermission: false, permissionLevel: null, reason: 'none' });
     } catch (error) {
         console.error('Check permission error:', error);
         res.status(500).json({ error: '권한 확인에 실패했습니다.' });
@@ -110,6 +154,17 @@ router.get('/my', verifyToken, async (req, res) => {
     }
 });
 
+// Get equipment that current user manages
+router.get('/my/managed', verifyToken, async (req, res) => {
+    try {
+        const managedEquipment = await Permission.getManagedEquipment(req.user.id);
+        res.json(managedEquipment);
+    } catch (error) {
+        console.error('Get managed equipment error:', error);
+        res.status(500).json({ error: '관리 장비 조회에 실패했습니다.' });
+    }
+});
+
 // Get permissions for specific user (admin only)
 router.get('/user/:userId', verifyToken, isAdmin, async (req, res) => {
     try {
@@ -121,11 +176,60 @@ router.get('/user/:userId', verifyToken, isAdmin, async (req, res) => {
     }
 });
 
+// Grant permission to user for specific equipment (from user management view)
+router.post('/user/:userId/equipment/:equipmentId', verifyToken, async (req, res) => {
+    try {
+        const { userId, equipmentId } = req.params;
+        const { permissionLevel } = req.body;
+        const granterId = req.user.id;
+        const granterRole = req.user.user_role;
+
+        // Check if granter can manage this equipment
+        if (granterRole !== 'admin') {
+            const canManage = await Permission.canManageEquipment(equipmentId, granterId);
+            if (!canManage) {
+                return res.status(403).json({ error: '이 장비의 권한을 관리할 수 없습니다.' });
+            }
+            // Non-admin cannot grant manager permission
+            if (permissionLevel === 'manager') {
+                return res.status(403).json({ error: '장비담당자 권한은 관리자만 부여할 수 있습니다.' });
+            }
+        }
+
+        await Permission.grant(equipmentId, userId, granterId, permissionLevel || 'normal');
+        res.json({ message: '권한이 부여되었습니다.' });
+    } catch (error) {
+        console.error('Grant permission error:', error);
+        res.status(500).json({ error: '권한 부여에 실패했습니다.' });
+    }
+});
+
+// Revoke permission from user for specific equipment (from user management view)
+router.delete('/user/:userId/equipment/:equipmentId', verifyToken, async (req, res) => {
+    try {
+        const { userId, equipmentId } = req.params;
+        const granterId = req.user.id;
+        const granterRole = req.user.user_role;
+
+        // Check if granter can manage this equipment
+        if (granterRole !== 'admin') {
+            const canManage = await Permission.canManageEquipment(equipmentId, granterId);
+            if (!canManage) {
+                return res.status(403).json({ error: '이 장비의 권한을 관리할 수 없습니다.' });
+            }
+        }
+
+        await Permission.revoke(equipmentId, userId);
+        res.json({ message: '권한이 취소되었습니다.' });
+    } catch (error) {
+        console.error('Revoke permission error:', error);
+        res.status(500).json({ error: '권한 취소에 실패했습니다.' });
+    }
+});
+
 // Get permission summary for admin dashboard
 router.get('/summary', verifyToken, isAdmin, async (req, res) => {
     try {
-        // User summary - permissions count per user
-        const { query } = require('../config/database');
         const userSummary = await query(`
             SELECT u.id, u.username, u.department, u.user_role, 
                    (SELECT COUNT(*) FROM equipment_permissions WHERE user_id = u.id) as permission_count
@@ -133,7 +237,6 @@ router.get('/summary', verifyToken, isAdmin, async (req, res) => {
             ORDER BY permission_count DESC, u.username
         `);
 
-        // Equipment summary - permissions count per equipment  
         const equipmentSummary = await query(`
             SELECT e.id, e.name, u.username as manager_name,
                    (SELECT COUNT(*) FROM equipment_permissions WHERE equipment_id = e.id) as permission_count
