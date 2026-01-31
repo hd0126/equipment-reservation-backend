@@ -175,12 +175,13 @@ app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, re
       ORDER BY total_hours DESC
     `, hasDateFilter ? [start_date, end_date] : []);
 
-    // User usage stats (with total hours)
+    // User usage stats (with total hours and department)
     const userStats = await query(`
       SELECT
         u.id,
         u.username,
         u.email,
+        u.department,
         COUNT(r.id) as total_reservations,
         COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
         COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
@@ -192,7 +193,7 @@ app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, re
       FROM users u
       LEFT JOIN reservations r ON u.id = r.user_id
         ${hasDateFilter ? 'AND r.start_time >= $1 AND r.start_time < $2' : ''}
-      GROUP BY u.id, u.username, u.email
+      GROUP BY u.id, u.username, u.email, u.department
       ORDER BY total_hours DESC
     `, hasDateFilter ? [start_date, end_date] : []);
 
@@ -238,6 +239,117 @@ app.get(['/stats', '/api/stats'], statsVerifyToken, statsIsAdmin, async (req, re
     });
   } catch (error) {
     console.error('Stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Statistics API for Equipment Managers (limited to managed equipment)
+const Permission = require('../models/Permission');
+app.get(['/stats/manager', '/api/stats/manager'], statsVerifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { start_date, end_date } = req.query;
+    const hasDateFilter = start_date && end_date;
+
+    // Get managed equipment IDs
+    const managedEquipment = await Permission.getManagedEquipment(userId);
+    const equipmentIds = managedEquipment.map(e => e.id);
+
+    if (equipmentIds.length === 0) {
+      return res.json({
+        equipmentStats: [],
+        userStats: [],
+        userEquipmentStats: [],
+        monthlyStats: []
+      });
+    }
+
+    // Equipment usage stats (filtered by managed equipment)
+    const equipmentStats = await query(`
+      SELECT
+        e.id,
+        e.name as equipment_name,
+        COUNT(r.id) as total_reservations,
+        COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
+          ELSE 0 END
+        ), 0) as total_hours
+      FROM equipment e
+      LEFT JOIN reservations r ON e.id = r.equipment_id
+        ${hasDateFilter ? 'AND r.start_time >= $2 AND r.start_time < $3' : ''}
+      WHERE e.id = ANY($1)
+      GROUP BY e.id, e.name
+      ORDER BY total_hours DESC
+    `, hasDateFilter ? [equipmentIds, start_date, end_date] : [equipmentIds]);
+
+    // User usage stats (for managed equipment only)
+    const userStats = await query(`
+      SELECT
+        u.id,
+        u.username,
+        u.email,
+        u.department,
+        COUNT(r.id) as total_reservations,
+        COUNT(CASE WHEN r.status = 'confirmed' THEN 1 END) as confirmed_count,
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END) as cancelled_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
+          ELSE 0 END
+        ), 0) as total_hours
+      FROM users u
+      JOIN reservations r ON u.id = r.user_id
+      WHERE r.equipment_id = ANY($1)
+        ${hasDateFilter ? 'AND r.start_time >= $2 AND r.start_time < $3' : ''}
+      GROUP BY u.id, u.username, u.email, u.department
+      ORDER BY total_hours DESC
+    `, hasDateFilter ? [equipmentIds, start_date, end_date] : [equipmentIds]);
+
+    // User-Equipment usage matrix (filtered by managed equipment)
+    const userEquipmentStats = await query(`
+      SELECT
+        u.username,
+        e.name as equipment_name,
+        COUNT(r.id) as reservation_count,
+        COALESCE(SUM(
+          CASE WHEN r.status = 'confirmed'
+          THEN EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600
+          ELSE 0 END
+        ), 0) as total_hours
+      FROM reservations r
+      JOIN users u ON r.user_id = u.id
+      JOIN equipment e ON r.equipment_id = e.id
+      WHERE r.status = 'confirmed' AND e.id = ANY($1)
+        ${hasDateFilter ? 'AND r.start_time >= $2 AND r.start_time < $3' : ''}
+      GROUP BY u.username, e.name
+      ORDER BY total_hours DESC
+      LIMIT 20
+    `, hasDateFilter ? [equipmentIds, start_date, end_date] : [equipmentIds]);
+
+    // Monthly reservation trends (filtered by managed equipment)
+    const monthlyStats = await query(`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', r.start_time), 'YYYY-MM') as month,
+        COUNT(*) as count,
+        COALESCE(SUM(EXTRACT(EPOCH FROM (r.end_time - r.start_time)) / 3600), 0) as total_hours
+      FROM reservations r
+      WHERE r.status = 'confirmed' AND r.equipment_id = ANY($1)
+        ${hasDateFilter ? 'AND r.start_time >= $2 AND r.start_time < $3' : 'AND r.start_time >= NOW() - INTERVAL \'6 months\''}
+      GROUP BY DATE_TRUNC('month', r.start_time)
+      ORDER BY month DESC
+    `, hasDateFilter ? [equipmentIds, start_date, end_date] : [equipmentIds]);
+
+    res.json({
+      equipmentStats: equipmentStats || [],
+      userStats: userStats || [],
+      userEquipmentStats: userEquipmentStats || [],
+      monthlyStats: monthlyStats || []
+    });
+  } catch (error) {
+    console.error('Manager stats error:', error);
     res.status(500).json({ error: error.message });
   }
 });
