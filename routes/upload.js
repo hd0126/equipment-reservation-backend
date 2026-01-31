@@ -68,6 +68,63 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
     }
 });
 
+// 이미지 업로드 (관리자 전용)
+// POST /api/upload/image
+// Body: JSON { file: base64 string, filename: string, equipmentId?: number }
+router.post('/image', verifyToken, isAdmin, async (req, res) => {
+    try {
+        const { file, filename, equipmentId } = req.body;
+
+        if (!file || !filename) {
+            return res.status(400).json({ error: '파일과 파일명이 필요합니다.' });
+        }
+
+        // Base64를 Buffer로 변환
+        const base64Data = file.replace(/^data:[^;]+;base64,/, '');
+        const fileBuffer = Buffer.from(base64Data, 'base64');
+
+        // 파일 크기 검증 (10MB 제한)
+        const maxSize = 10 * 1024 * 1024;
+        if (fileBuffer.length > maxSize) {
+            return res.status(400).json({ error: '이미지 크기는 10MB를 초과할 수 없습니다.' });
+        }
+
+        // 파일명 생성
+        const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const timestamp = Date.now();
+        const storagePath = equipmentId
+            ? `equipment/${equipmentId}/image_${timestamp}_${safeFilename}`
+            : `images/${timestamp}_${safeFilename}`;
+
+        // 확장자에 따른 Content-Type 결정
+        const ext = filename.split('.').pop().toLowerCase();
+        const contentTypes = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'webp': 'image/webp',
+        };
+        const contentType = contentTypes[ext] || 'image/jpeg';
+
+        // R2에 업로드
+        const url = await uploadToR2(fileBuffer, storagePath, contentType);
+
+        if (!url) {
+            return res.status(500).json({ error: 'R2 업로드 실패. 환경 변수를 확인하세요.' });
+        }
+
+        res.json({
+            message: '이미지 업로드 성공',
+            url,
+        });
+
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ error: '이미지 업로드 중 오류가 발생했습니다.' });
+    }
+});
+
 // 파일 삭제 (관리자 전용)
 // DELETE /api/upload
 // Body: JSON { equipmentId: number, type: 'brochure' | 'manual' | 'quick_guide' | 'image', fileUrl: string }
