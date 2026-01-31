@@ -206,16 +206,27 @@ router.delete('/users/:id', verifyToken, async (req, res) => {
     }
 
     const { run } = require('../config/database');
+    const userId = req.params.id;
 
     // Delete related permissions first
-    await run('DELETE FROM equipment_permissions WHERE user_id = $1', [req.params.id]);
+    await run('DELETE FROM equipment_permissions WHERE user_id = $1', [userId]);
+
+    // Remove as equipment manager (set to NULL)
+    await run('UPDATE equipment SET manager_id = NULL WHERE manager_id = $1', [userId]);
+
+    // Delete related reservations (or keep for history - here we delete)
+    await run('DELETE FROM reservations WHERE user_id = $1', [userId]);
+
+    // Delete related equipment logs
+    await run('DELETE FROM equipment_logs WHERE user_id = $1', [userId]);
+
     // Delete user
-    await run('DELETE FROM users WHERE id = $1', [req.params.id]);
+    await run('DELETE FROM users WHERE id = $1', [userId]);
 
     res.json({ message: '사용자가 삭제되었습니다.' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ error: '사용자 삭제에 실패했습니다.' });
+    res.status(500).json({ error: '사용자 삭제에 실패했습니다: ' + error.message });
   }
 });
 
