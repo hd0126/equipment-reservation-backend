@@ -154,7 +154,7 @@ router.delete('/', verifyToken, isAdmin, async (req, res) => {
             'brochure': 'brochure_url',
             'manual': 'manual_url',
             'quick_guide': 'quick_guide_url',
-            'image': 'image_url',
+            'image': 'image_file_url',
         };
         const column = columnMap[type];
 
