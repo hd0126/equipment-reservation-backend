@@ -82,6 +82,26 @@ router.post('/equipment/:equipmentId/grant', verifyToken, canManageEquipment, as
     }
 });
 
+// Update permission level (alternative route for user management)
+router.put('/equipment/:equipmentId/update', verifyToken, canManageEquipment, async (req, res) => {
+    try {
+        const { equipmentId } = req.params;
+        const { userId, permissionLevel } = req.body;
+        const granterRole = req.user.user_role;
+
+        // Only admin can set manager permission
+        if (permissionLevel === 'manager' && granterRole !== 'admin') {
+            return res.status(403).json({ error: '장비담당자 권한은 관리자만 부여할 수 있습니다.' });
+        }
+
+        await Permission.updateLevel(equipmentId, userId, permissionLevel);
+        res.json({ message: '권한이 수정되었습니다.' });
+    } catch (error) {
+        console.error('Update permission error:', error);
+        res.status(500).json({ error: '권한 수정에 실패했습니다.' });
+    }
+});
+
 // Update permission level
 router.put('/equipment/:equipmentId/user/:userId', verifyToken, canManageEquipment, async (req, res) => {
     try {
@@ -231,10 +251,12 @@ router.delete('/user/:userId/equipment/:equipmentId', verifyToken, async (req, r
 router.get('/summary', verifyToken, isAdmin, async (req, res) => {
     try {
         const userSummary = await query(`
-            SELECT u.id, u.username, u.department, u.user_role, 
-                   (SELECT COUNT(*) FROM equipment_permissions WHERE user_id = u.id) as permission_count
+            SELECT u.id, u.username, u.department, u.user_role, u.phone, u.created_at,
+                   (SELECT COUNT(*) FROM equipment_permissions ep 
+                    JOIN equipment e ON ep.equipment_id = e.id 
+                    WHERE ep.user_id = u.id) as permission_count
             FROM users u
-            ORDER BY permission_count DESC, u.username
+            ORDER BY u.id ASC
         `);
 
         const equipmentSummary = await query(`
@@ -249,6 +271,50 @@ router.get('/summary', verifyToken, isAdmin, async (req, res) => {
     } catch (error) {
         console.error('Get permission summary error:', error);
         res.status(500).json({ error: '권한 현황 조회에 실패했습니다.' });
+    }
+});
+
+// Get summary for equipment managers (limited to their managed equipment)
+router.get('/summary/manager', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Get equipment IDs that user manages
+        const managedEquipment = await Permission.getManagedEquipment(userId);
+        const equipmentIds = managedEquipment.map(e => e.id);
+
+        if (equipmentIds.length === 0) {
+            return res.json({ userSummary: [], equipmentSummary: [], managedEquipmentIds: [] });
+        }
+
+        const placeholders = equipmentIds.map((_, i) => `$${i + 1}`).join(',');
+
+        // Get users who have permission for managed equipment
+        const userSummary = await query(`
+            SELECT DISTINCT u.id, u.username, u.department, u.user_role, u.phone, u.created_at,
+                   (SELECT COUNT(*) FROM equipment_permissions ep 
+                    JOIN equipment e ON ep.equipment_id = e.id 
+                    WHERE ep.user_id = u.id AND ep.equipment_id IN (${placeholders})) as permission_count
+            FROM users u
+            JOIN equipment_permissions ep ON u.id = ep.user_id
+            WHERE ep.equipment_id IN (${placeholders})
+            ORDER BY u.id ASC
+        `, [...equipmentIds, ...equipmentIds]);
+
+        // Get managed equipment summary
+        const equipmentSummary = await query(`
+            SELECT e.id, e.name, u.username as manager_name,
+                   (SELECT COUNT(*) FROM equipment_permissions WHERE equipment_id = e.id) as permission_count
+            FROM equipment e
+            LEFT JOIN users u ON e.manager_id = u.id
+            WHERE e.id IN (${placeholders})
+            ORDER BY e.name
+        `, equipmentIds);
+
+        res.json({ userSummary, equipmentSummary, managedEquipmentIds: equipmentIds });
+    } catch (error) {
+        console.error('Get manager summary error:', error.message, error.stack);
+        res.status(500).json({ error: '권한 현황 조회에 실패했습니다.', details: error.message });
     }
 });
 

@@ -156,6 +156,28 @@ class Reservation {
     `;
     return await query(sql, [startDate, endDate]);
   }
+
+  // Get reservations by multiple equipment IDs (for equipment managers)
+  static async getByEquipmentIds(equipmentIds) {
+    if (!equipmentIds || equipmentIds.length === 0) {
+      return [];
+    }
+    const placeholders = equipmentIds.map((_, i) => `$${i + 1}`).join(',');
+    const sql = `
+      SELECT 
+        r.*,
+        u.username,
+        u.email,
+        e.name as equipment_name,
+        e.location as equipment_location
+      FROM reservations r
+      JOIN users u ON r.user_id = u.id
+      JOIN equipment e ON r.equipment_id = e.id
+      WHERE r.equipment_id IN (${placeholders})
+      ORDER BY r.start_time DESC
+    `;
+    return await query(sql, equipmentIds);
+  }
 }
 
 module.exports = Reservation;

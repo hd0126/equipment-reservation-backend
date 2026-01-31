@@ -16,6 +16,25 @@ router.get('/', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// Get reservations for equipment managers (limited to their managed equipment)
+router.get('/manager', verifyToken, async (req, res) => {
+  try {
+    const Permission = require('../models/Permission');
+    const managedEquipment = await Permission.getManagedEquipment(req.user.id);
+    const equipmentIds = managedEquipment.map(e => e.id);
+
+    if (equipmentIds.length === 0) {
+      return res.json([]);
+    }
+
+    const reservations = await Reservation.getByEquipmentIds(equipmentIds);
+    res.json(reservations);
+  } catch (error) {
+    console.error('Get manager reservations error:', error);
+    res.status(500).json({ error: 'Failed to get reservations' });
+  }
+});
+
 // Get current user's reservations
 router.get('/my', verifyToken, async (req, res) => {
   try {
