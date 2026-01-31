@@ -278,28 +278,39 @@ router.get('/summary', verifyToken, isAdmin, async (req, res) => {
 router.get('/summary/manager', verifyToken, async (req, res) => {
     try {
         const userId = req.user.id;
+        console.log('Manager summary request from user:', userId);
 
         // Get equipment IDs that user manages
         const managedEquipment = await Permission.getManagedEquipment(userId);
+        console.log('Managed equipment:', managedEquipment);
+
         const equipmentIds = managedEquipment.map(e => e.id);
 
         if (equipmentIds.length === 0) {
+            console.log('No managed equipment found for user:', userId);
             return res.json({ userSummary: [], equipmentSummary: [], managedEquipmentIds: [] });
         }
 
-        const placeholders = equipmentIds.map((_, i) => `$${i + 1}`).join(',');
-
-        // Get users who have permission for managed equipment
-        const userSummary = await query(`
-            SELECT DISTINCT u.id, u.username, u.department, u.user_role, u.phone, u.created_at,
-                   (SELECT COUNT(*) FROM equipment_permissions ep 
-                    JOIN equipment e ON ep.equipment_id = e.id 
-                    WHERE ep.user_id = u.id AND ep.equipment_id IN (${placeholders})) as permission_count
+        // Use simpler queries to avoid placeholder issues
+        const userSummary = [];
+        const usersWithPermission = await query(`
+            SELECT DISTINCT u.id, u.username, u.department, u.user_role, u.phone, u.created_at
             FROM users u
             JOIN equipment_permissions ep ON u.id = ep.user_id
-            WHERE ep.equipment_id IN (${placeholders})
+            WHERE ep.equipment_id = ANY($1)
             ORDER BY u.id ASC
-        `, [...equipmentIds, ...equipmentIds]);
+        `, [equipmentIds]);
+
+        for (const user of usersWithPermission) {
+            const countResult = await get(`
+                SELECT COUNT(*) as cnt FROM equipment_permissions 
+                WHERE user_id = $1 AND equipment_id = ANY($2)
+            `, [user.id, equipmentIds]);
+            userSummary.push({
+                ...user,
+                permission_count: parseInt(countResult?.cnt || 0)
+            });
+        }
 
         // Get managed equipment summary
         const equipmentSummary = await query(`
@@ -307,10 +318,11 @@ router.get('/summary/manager', verifyToken, async (req, res) => {
                    (SELECT COUNT(*) FROM equipment_permissions WHERE equipment_id = e.id) as permission_count
             FROM equipment e
             LEFT JOIN users u ON e.manager_id = u.id
-            WHERE e.id IN (${placeholders})
+            WHERE e.id = ANY($1)
             ORDER BY e.name
-        `, equipmentIds);
+        `, [equipmentIds]);
 
+        console.log('Manager summary success - users:', userSummary.length, 'equipment:', equipmentSummary.length);
         res.json({ userSummary, equipmentSummary, managedEquipmentIds: equipmentIds });
     } catch (error) {
         console.error('Get manager summary error:', error.message, error.stack);
