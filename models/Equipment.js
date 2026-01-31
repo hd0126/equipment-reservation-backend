@@ -18,9 +18,22 @@ class Equipment {
     return await query(sql);
   }
 
-  // Get all equipment (alias)
+  // Get all equipment with manager info (alias)
   static async getAll() {
-    return await this.findAll();
+    const sql = `
+      SELECT e.*, 
+             m.username as manager_name
+      FROM equipment e
+      LEFT JOIN (
+        SELECT DISTINCT ON (ep.equipment_id) ep.equipment_id, u.username
+        FROM equipment_permissions ep
+        JOIN users u ON ep.user_id = u.id
+        WHERE ep.permission_level = 'manager'
+        ORDER BY ep.equipment_id, ep.granted_at DESC
+      ) m ON e.id = m.equipment_id
+      ORDER BY e.created_at DESC
+    `;
+    return await query(sql);
   }
 
   // Get equipment by ID
