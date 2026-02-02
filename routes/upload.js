@@ -1,6 +1,6 @@
 const express = require('express');
 const { verifyToken, isAdmin } = require('../middleware/auth');
-const { uploadToR2, deleteFromR2 } = require('../services/r2Storage');
+const { uploadToR2, deleteFromR2, getFromR2 } = require('../services/r2Storage');
 const { run } = require('../config/database');
 
 const router = express.Router();
@@ -169,6 +169,52 @@ router.delete('/', verifyToken, isAdmin, async (req, res) => {
     } catch (error) {
         console.error('Delete error:', error);
         res.status(500).json({ error: '파일 삭제 중 오류가 발생했습니다.' });
+    }
+});
+
+// 이미지 프록시 (공개 접근 가능 - 인증 불필요)
+// GET /api/upload/proxy/*
+// R2에서 이미지를 가져와 클라이언트에 전달 (네트워크 보안 정책 우회용)
+// v1.4.1 - 2026-02-02
+router.get('/proxy/*', async (req, res) => {
+    try {
+        // 와일드카드로 전체 경로 캡처 (예: equipment/1/image_xxx.png)
+        const filePath = req.params[0];
+
+        if (!filePath) {
+            return res.status(400).json({ error: '파일 경로가 필요합니다.' });
+        }
+
+        // 경로 검증 (디렉토리 탐색 공격 방지)
+        if (filePath.includes('..') || filePath.startsWith('/')) {
+            return res.status(400).json({ error: '잘못된 파일 경로입니다.' });
+        }
+
+        // R2에서 파일 가져오기
+        const response = await getFromR2(filePath);
+
+        if (!response) {
+            return res.status(404).json({ error: '파일을 찾을 수 없습니다.' });
+        }
+
+        // Content-Type 설정
+        const contentType = response.ContentType || 'application/octet-stream';
+        res.setHeader('Content-Type', contentType);
+
+        // 캐시 설정 (이미지는 변경이 거의 없으므로 1년 캐시)
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+        // Content-Length 설정 (있는 경우)
+        if (response.ContentLength) {
+            res.setHeader('Content-Length', response.ContentLength);
+        }
+
+        // 스트림으로 응답 (메모리 효율적)
+        response.Body.pipe(res);
+
+    } catch (error) {
+        console.error('Proxy error:', error);
+        res.status(500).json({ error: '파일 조회 중 오류가 발생했습니다.' });
     }
 });
 

@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 
 // R2 클라이언트 설정 (Cloudflare R2는 S3 호환)
 const getR2Client = () => {
@@ -73,7 +73,35 @@ const deleteFromR2 = async (filename) => {
     }
 };
 
+/**
+ * R2에서 파일 가져오기 (프록시 이미지 제공용)
+ * @param {string} filename - 가져올 파일명 (경로 포함)
+ * @returns {Object|null} - S3 GetObject 응답 (Body, ContentType 등) 또는 null
+ */
+const getFromR2 = async (filename) => {
+    const client = getR2Client();
+    if (!client) {
+        console.error('R2 client not available');
+        return null;
+    }
+
+    const bucketName = process.env.R2_BUCKET_NAME;
+
+    try {
+        const response = await client.send(new GetObjectCommand({
+            Bucket: bucketName,
+            Key: filename,
+        }));
+        console.log(`📥 Retrieved from R2: ${filename}`);
+        return response;
+    } catch (error) {
+        console.error('R2 get error:', error);
+        return null;
+    }
+};
+
 module.exports = {
     uploadToR2,
     deleteFromR2,
+    getFromR2,
 };
