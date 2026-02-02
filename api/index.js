@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { initDatabase, query, run, get } = require('../config/database');
+const { initDatabase, query, run } = require('../config/database');
 const User = require('../models/User');
 const Equipment = require('../models/Equipment');
 
@@ -29,65 +29,6 @@ const autoSeed = async () => {
     if (!existingUser) {
       await User.create('testuser', 'user@test.com', 'user123', 'user');
       console.log('✓ Default test user created');
-    }
-
-    // Check if first equipment already exists (prevents race condition)
-    const existingEquipment = await get('SELECT id FROM equipment WHERE name = $1', ['UV aligner (SUSS)']);
-
-    if (!existingEquipment) {
-      console.log('Seeding equipment (first item not found)...');
-
-      const equipments = [
-        {
-          name: 'UV aligner (SUSS)',
-          desc: 'SUSS MicroTec MA6 Mask Aligner for photolithography',
-          loc: 'Yellow Room 101',
-          img: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=400&h=300&fit=crop'
-        },
-        {
-          name: 'UV aligner (MIDAS)',
-          desc: 'MIDAS MDA-400M Mask Aligner (Contact/Proximity)',
-          loc: 'Yellow Room 102',
-          img: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&h=300&fit=crop'
-        },
-        {
-          name: 'Spincoater (SUSS)',
-          desc: 'SUSS MicroTec LabSpin for photoresist coating',
-          loc: 'Yellow Room 101',
-          img: 'https://images.unsplash.com/photo-1581093588401-fbb62a02f120?w=400&h=300&fit=crop'
-        },
-        {
-          name: 'Spincoater (MIDAS)',
-          desc: 'MIDAS Spin Coater for general purpose',
-          loc: 'Yellow Room 102',
-          img: 'https://images.unsplash.com/photo-1581093450021-4a7360e9a6b5?w=400&h=300&fit=crop'
-        },
-        {
-          name: 'RIE (SORONA)',
-          desc: 'Sorona Plasma Etch System',
-          loc: 'Etch Lab 202',
-          img: 'https://images.unsplash.com/photo-1581091226033-d5c48150dbaa?w=400&h=300&fit=crop'
-        },
-        {
-          name: 'ICP-RIE (OXFORD)',
-          desc: 'Oxford Instruments Plasmalab System 100',
-          loc: 'Etch Lab 201',
-          img: 'https://images.unsplash.com/photo-1581091877018-dac6a371d50f?w=400&h=300&fit=crop'
-        }
-      ];
-
-      for (const eq of equipments) {
-        // Use INSERT with conflict check to prevent duplicates
-        try {
-          await Equipment.create(eq.name, eq.desc, eq.loc, 'available', eq.img);
-        } catch (insertError) {
-          // Ignore duplicate errors
-          console.log(`Equipment ${eq.name} might already exist, skipping`);
-        }
-      }
-      console.log(`✓ Seeded ${equipments.length} equipments`);
-    } else {
-      console.log('⏭ Equipment already exists, skipping seed');
     }
 
   } catch (error) {
